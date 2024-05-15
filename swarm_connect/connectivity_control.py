@@ -76,8 +76,7 @@ class Cons1(rclpy.node.Node):
         self.occupancy_grid = OccupancyGrid3D(self.map_range,self.map_origin,self.map_res)
 
         self.path_finder = PathFinder(self.occupancy_grid.get_grid())
-        self.path = None
-        self.all_paths = [None for i in range(self.n_init_agents)]  # self.all_paths = [None for i in self.uav_namespaces]
+        self.all_paths = []  # self.all_paths = [None for i in self.uav_namespaces]
         
         #_________________________  Subs  _________________________
         self.key_vel = None
@@ -195,6 +194,9 @@ class Cons1(rclpy.node.Node):
 
                             # pop the uav from grounded list and add to active
                             uav_to_add = self.grounded_uavs.pop(uav_to_add_idx)
+                            path = self.create_paths(uav_to_add)
+                            uav_to_add.set_trajectory(path)
+                            
                             self.active_uavs.append(uav_to_add)
                             self.active_uavs[-1].takeoff(self.takeoff_alt)
                             self.n_init_agents+=1
@@ -203,7 +205,7 @@ class Cons1(rclpy.node.Node):
 
                     if self.active_uavs[i].get_battery() <= self.dead_battery_level:
                         uavs_to_land.append(i)
-                        print(f'TO POP: {uavs_to_land}')
+                        self.get_logger().info(f'UAVs to land: {uavs_to_land}')
 
 
             for i in uavs_to_land:
@@ -236,6 +238,33 @@ class Cons1(rclpy.node.Node):
         elapsed_seconds = elapsed_time.nanoseconds / 1e9
         return elapsed_seconds  
 
+    def create_paths(self,uav):
+
+        self.get_logger().info('Creating Path...')
+
+        pos = [uav.get_pose() for uav in self.active_uavs]
+        grid = self.occupancy_grid.get_grid_marked(pos)
+
+        self.viz_manager.viz_map(self.occupancy_grid)
+        
+        self.path_finder.update_grid(self.occupancy_grid.get_grid())
+
+        uav_pos = uav.get_pose()
+        # start path from a bit of heigh in case UAV hasnt fully taken off
+        uav_pos[-1] = self.takeoff_alt
+
+        start = self.occupancy_grid.real_to_grid(uav_pos)
+        goal = self.occupancy_grid.real_to_grid(self.goal_pos[-1])
+
+        self.get_logger().info(f"Searching path from {uav.get_pose()} to {self.goal_pos[-1]}")
+        path_grid = self.path_finder.search(start, goal)
+        path = self.occupancy_grid.all_grid_to_real(path_grid)
+        
+        # self.all_paths.append(path)
+
+        return path
+
+
     #_________________________  Viz  _________________________
 
     def viz(self):
@@ -261,9 +290,12 @@ class Cons1(rclpy.node.Node):
 
             self.viz_manager.viz_edges(all_positions,edges)
         
-        if self.all_paths:
-            all_paths = [path for path in self.all_paths if path is not None]
-            self.viz_manager.viz_path(all_paths)
+        all_paths = []
+        for uav in self.active_uavs:
+            traj = uav.get_trajectory()
+            if len(traj) != 0: 
+                all_paths.append(traj)
+        self.viz_manager.viz_path(all_paths)
 
 
 def main():

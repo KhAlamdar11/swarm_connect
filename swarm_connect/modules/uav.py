@@ -30,6 +30,10 @@ class UAV:
 
         self.speed = 0.2
 
+        # defines if the uav is ready for go to or requires to follow its current traj first!
+        self.mode = 'go_to'
+        self.trajectory = []
+
         self.old_goal = np.array([1000.0,1000.0])
 
         self.battery = battery
@@ -42,6 +46,8 @@ class UAV:
         self.attitude = None
 
         self.goal = None
+
+        self.takeoff_alt = 0.2
 
         self.is_log_status = False
 
@@ -70,6 +76,7 @@ class UAV:
         while not self.takeoff_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info(f'Takeoff for {self.name} not available, waiting...') if self.is_log_status else None
         future = self.takeoff_client.call_async(Takeoff.Request(height=altitude))
+        self.takeoff_alt = altitude
 
 
     def land(self):
@@ -81,11 +88,29 @@ class UAV:
 
     def go_to(self, goal):
 
-        pos = copy.deepcopy(goal)
+        if self.mode == 'go_to':
+            pos = copy.deepcopy(goal)
+            # only proceed if new pt is further form last point to avoid repetitive commands!
+            if np.linalg.norm(pos - self.goal) < 0.05:  # Define some acceptable distance within which new commands are suppressed
+                return  # Skip sending new command if close enough
+            self.goal = pos
+
+        elif self.mode == 'trajectory':
+            # extract and delete current waypoint
+            pos = self.trajectory[0]
+
+            # only proceed if new pt is further form last point to avoid repetitive commands!
+            if np.linalg.norm(pos - self.goal) < 0.05:  # Define some acceptable distance within which new commands are suppressed
+                return  # Skip sending new command if close enough
+
+            self.goal = pos
+            if len(self.trajectory) > 1:
+                self.trajectory = self.trajectory[1:]
+            else:
+                self.mode = 'go_to'
+                self.trajectory = []
 
         current_distance = np.linalg.norm(self.position - pos)
-        if current_distance < 0.05:  # Define some acceptable distance within which new commands are suppressed
-            return  # Skip sending new command if close enough
 
         t = current_distance / self.speed
         t_s, t_ns = self.get_sec_nanosec(t)
@@ -99,6 +124,37 @@ class UAV:
                             duration=Duration(sec=t_s, nanosec=t_ns))
         
         future = self.go_to_client.call_async(request)
+
+
+    # def go_to(self, goal):
+
+    #     if self.mode == 'go_to':
+    #         pos = copy.deepcopy(goal)
+    #     elif self.mode == 'trajectory':
+    #         # extract and delete current waypoint
+    #         pos = self.trajectory[0]
+    #         if len(self.trajectory) > 1:
+    #             self.trajectory = self.trajectory[1:]
+    #         else:
+    #             self.mode = 'go_to'
+    #             self.trajectory = []
+
+    #     current_distance = np.linalg.norm(self.position - pos)
+    #     if current_distance < 0.05:  # Define some acceptable distance within which new commands are suppressed
+    #         return  # Skip sending new command if close enough
+
+    #     t = current_distance / self.speed
+    #     t_s, t_ns = self.get_sec_nanosec(t)
+        
+    #     while not self.go_to_client.wait_for_service(timeout_sec=1.0):
+    #         self.node.get_logger().info(f'Goto for {self.name} not available, waiting...') if self.is_log_status else None
+    #     request = GoTo.Request(group_mask=0,
+    #                         relative=False,
+    #                         goal=Point(x=pos[0], y=pos[1], z=pos[2]),
+    #                         yaw=self.attitude[2],
+    #                         duration=Duration(sec=t_s, nanosec=t_ns))
+        
+    #     future = self.go_to_client.call_async(request)
 
     # def go_to(self, goal):
     #     pos = copy.deepcopy(goal)
@@ -139,9 +195,21 @@ class UAV:
             attitude[2] += 2 * np.pi
         self.attitude = attitude
 
+        if self.goal is None:
+            self.goal = self.position
+
     #_________________________  Setters/Getters  _________________________
 
+    def set_trajectory(self,traj):
+        self.trajectory = traj
+        self.mode = 'trajectory'
+        print(self.trajectory)
+
     
+    def get_trajectory(self):
+        return self.trajectory
+    
+
     def get_pose(self):
         return self.position
     

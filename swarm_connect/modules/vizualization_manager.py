@@ -91,16 +91,15 @@ class VisualizationManager:
         self.viz_goals_pub.publish(marker_array)
 
 
-    def viz_map(self,uav_poses,uav_namespaces,occupancy_grid):
+    def viz_map(self,occupancy_grid):
         '''
         shows map. Just ibstacle positions!
         Color: Black
         '''
-        pos = np.round(np.array([uav_poses[ns]['position'] for ns in uav_namespaces]),2)
 
-        grid = occupancy_grid.get_grid_marked(pos)
-
+        grid = occupancy_grid.get_grid()
         res = occupancy_grid.resolution
+
         marker_array = MarkerArray()
         id = 0
         for z in range(grid.shape[2]):

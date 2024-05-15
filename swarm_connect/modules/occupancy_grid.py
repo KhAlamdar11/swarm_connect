@@ -21,14 +21,18 @@ class OccupancyGrid3D:
         else:
             print("UAV OUT OF RANGE!")
 
-    def get_grid_marked(self, pos):
+    def get_grid_marked(self, pos, n=1):
         self.grid.fill(0)
         for p in pos:
-            # print(p)
-            # real_x, real_y, real_z = p
             x, y, z = self.real_to_grid(p)
-            if 0 <= x < self.range_x and 0 <= y < self.range_y and 0 <= z < self.range_z:
-                self.grid[y, x, z] = 1  
+            # Iterate over the neighborhood defined by n
+            for dx in range(-n, n + 1):
+                for dy in range(-n, n + 1):
+                    for dz in range(-n, n + 1):
+                        nx, ny, nz = x + dx, y + dy, z + dz
+                        # Check if the neighbor is within the grid bounds
+                        if 0 <= nx < self.range_x and 0 <= ny < self.range_y and 0 <= nz < self.range_z:
+                            self.grid[ny, nx, nz] = 1
         return self.grid
         
 
