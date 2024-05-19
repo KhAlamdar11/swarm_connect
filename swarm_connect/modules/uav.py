@@ -76,7 +76,8 @@ class UAV:
         self.node.get_logger().info(f'Takeoff for uav {self.name} called...') if self.is_log_status else None
         while not self.takeoff_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info(f'Takeoff for {self.name} not available, waiting...') if self.is_log_status else None
-        future = self.takeoff_client.call_async(Takeoff.Request(height=altitude))
+        for i in range(5):
+            future = self.takeoff_client.call_async(Takeoff.Request(height=altitude))
         self.takeoff_alt = altitude
         if mode_change:
             self.mode = 'go_to'
@@ -86,7 +87,8 @@ class UAV:
         self.node.get_logger().info(f'Land for uav {self.name} called...') if self.is_log_status else None
         while not self.land_client.wait_for_service(timeout_sec=1.0):
             self.node.get_logger().info(f'Land for {self.name} not available, waiting...') if self.is_log_status else None
-        future = self.land_client.call_async(Land.Request())
+        for i in range(5):
+            future = self.land_client.call_async(Land.Request())
 
 
     def go_to(self, goal, mode = None):

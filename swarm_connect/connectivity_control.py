@@ -360,6 +360,8 @@ class Cons1(rclpy.node.Node):
             self.viz_manager.viz_goals(self.get_clock().now().to_msg(),
                                       self.goal_pos,
                                       battery)
+            
+            self.viz_manager.viz_charging_stations(self.charging_stations)
 
         if self.pin_agents is not None:
             self.viz_manager.viz_pins(self.get_clock().now().to_msg(),

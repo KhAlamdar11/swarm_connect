@@ -23,7 +23,7 @@ class VisualizationManager:
         self.viz_map_pub = node.create_publisher(MarkerArray, f'{node.get_name()}/viz_map', 10)
         self.viz_anon_pt_pub = node.create_publisher(MarkerArray, f'{node.get_name()}/viz_anon_pt', 10)
         self.viz_path_pub = node.create_publisher(Marker, f'{node.get_name()}/viz_path', 10)
-
+        self.viz_charging_stations_pub = node.create_publisher(MarkerArray, f'{node.get_name()}/viz_charging_stations', 10) 
 
     def viz_pins(self, time, pin_agents):
         '''
@@ -139,7 +139,7 @@ class VisualizationManager:
                 type=Marker.LINE_LIST,
                 action=Marker.ADD,
                 color=ColorRGBA(r=0.5, g=0.5, b=0.5, a=1.0),
-                scale=Vector3(x=0.07, y=0.07, z=0.07),
+                scale=Vector3(x=0.03, y=0.03, z=0.03),
                 lifetime=rclpy.duration.Duration(seconds=0.1).to_msg(),
                 id = 0,
                 ns = "lines"
@@ -206,3 +206,40 @@ class VisualizationManager:
         marker_array.markers.append(marker)
 
         self.viz_anon_pt_pub.publish(marker_array)
+
+
+    def viz_charging_stations(self, charging_stations):
+        '''
+        Show position of goals
+        Color: Blue
+        '''
+        # clear all old markers
+        # Clear all markers
+        
+        marker_array = MarkerArray()
+        i=0
+        for pos in charging_stations:
+            marker = Marker()
+            marker.header.frame_id = "world"
+            marker.type = Marker.CUBE
+            marker.id = i  # Assuming ns is unique for each UAV
+            i+=1
+            marker.pose.position.x = pos[0]
+            marker.pose.position.y = pos[1]
+            marker.pose.position.z = 0.025
+            marker.scale.x = 0.25
+            marker.scale.y = 0.25
+            marker.scale.z = 0.05
+            if charging_stations[pos] is None:
+                marker.color = ColorRGBA(r=0.0, g=1.0, b=0.0, a=1.0)
+            else:
+                marker.color = ColorRGBA(r=1.0, g=1.0, b=0.0, a=1.0)
+            marker.lifetime = rclpy.duration.Duration(seconds=0.1).to_msg()
+
+            # Replace with the actual angle
+            quaternion = tf_transformations.quaternion_from_euler(0.0, 0.0, 0.0)
+            marker.pose.orientation = Quaternion(x=quaternion[0], y=quaternion[1], z=quaternion[2], w=quaternion[3])
+
+            marker_array.markers.append(marker)
+
+        self.viz_charging_stations_pub.publish(marker_array)
