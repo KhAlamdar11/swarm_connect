@@ -21,7 +21,7 @@ class PathFinder:
         return heuristic
     
     def update_grid(self,grid):
-        self.grid = grid
+        self.grid = grid.transpose(1,0,2)
 
     def search(self, init, goal):
         heuristic = self.calcheuristic(goal)

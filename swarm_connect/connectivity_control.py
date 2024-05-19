@@ -96,7 +96,8 @@ class Cons1(rclpy.node.Node):
         # run controller
         self.run_c = self.create_timer(1/self.rate, self.run)
 
-        # self.trajectory_tracker_c = self.create_timer(1/self.rate, self.trajectory_tracker)
+        # self.test_trajectory_t = self.create_timer(0.5, self.test_trajectory)
+        # self.is_traj_test = False
 
         # visualizers
         self.viz = self.create_timer(0.5, self.viz)
@@ -152,7 +153,6 @@ class Cons1(rclpy.node.Node):
             # call go to to get UAVs to new positions and update batteries
             uavs_to_land = []
             to_add = []
-            # # print(len(self.active_uavs))
             for i in range(len(self.active_uavs)):
                 self.active_uavs[i].go_to(self.goal_pos[i])
                 
@@ -160,48 +160,45 @@ class Cons1(rclpy.node.Node):
                 if i in self.battery_decay_select or 1000 in self.battery_decay_select:
                     self.active_uavs[i].decrease_battery()
 
-                    print(self.active_uavs[i].get_battery())
+                    # Check if new agent has not already been deployed for the new agent   
+                    # And check for critical conditions                 
+                    if i not in self.critical_uavs_idx and \
+                                self.active_uavs[i].get_battery() <= self.critical_battery_level and \
+                                (self.n_init_agents <= int(self.add_uav_limit[0]) or \
+                                self.connectivity_controller.get_fiedler() <= self.add_uav_limit[1]):
+                        
+                        self.critical_uavs_idx.append(i)
 
-                    # Check if new agent has not already been deployed for the new agent                    
-                    if i not in self.critical_uavs_idx:
-                        # Check for critical conditions
-                        if self.active_uavs[i].get_battery() <= self.critical_battery_level and \
-                            (self.n_init_agents <= int(self.add_uav_limit[0]) or \
-                            self.connectivity_controller.get_fiedler() <= self.add_uav_limit[1]):
-
-                            self.critical_uavs_idx.append(i)
-
-                            # add a new agent 'for' this agent
-                            self.connectivity_controller.add_agent(i)  
-                             
-                            self.get_logger().info(f'Ading new agent at {self.goal_pos[-1]}...')
-                            v = self.connectivity_controller.controller()
-                            p, done = self.connectivity_controller.step(v)
-                            self.pin_agents[:,:2] = p[:2]
-                            # duplicate last row to increase size of goal positions and keep heigh var
-                            self.goal_pos = np.append(self.goal_pos, [self.goal_pos[-1]], axis=0)
-                            self.goal_pos[:,:2] = p[2:]
-
-                            # find the closet available uav on ground to the goal
-                            uav_dist_to_goal = []
-                            for uav in self.grounded_uavs:
-                                print(uav.get_name(), uav.get_battery())
-                                if uav.get_battery() > 0.8: 
-                                    uav_dist_to_goal.append(np.linalg.norm(self.goal_pos[-1] - 
-                                                                           uav.get_pose()))
-                                
-                            uav_to_add_idx = np.argmin(uav_dist_to_goal)
-
-                            # pop the uav from grounded list and add to active
-                            uav_to_add = self.grounded_uavs.pop(uav_to_add_idx)
-                            path = self.create_paths(uav_to_add)
-                            uav_to_add.set_trajectory(path)
+                        # add a new agent 'for' this agent
+                        self.connectivity_controller.add_agent(i)  
                             
-                            self.active_uavs.append(uav_to_add)
-                            self.active_uavs[-1].takeoff(self.takeoff_alt)
-                            self.n_init_agents+=1
-                            #__________________________________________                       
+                        self.get_logger().info(f'Ading new agent at {self.goal_pos[-1]}...')
+                        v = self.connectivity_controller.controller()
+                        p, done = self.connectivity_controller.step(v)
+                        self.pin_agents[:,:2] = p[:2]
+                        # duplicate last row to increase size of goal positions and keep heigh var
+                        self.goal_pos = np.append(self.goal_pos, [self.goal_pos[-1]], axis=0)
+                        self.goal_pos[:,:2] = p[2:]
+
+                        # find the closet available uav on ground to the goal
+                        uav_dist_to_goal = []
+                        for uav in self.grounded_uavs:
+                            # print(uav.get_name(), uav.get_battery())
+                            if uav.get_battery() > 0.8: 
+                                uav_dist_to_goal.append(np.linalg.norm(self.goal_pos[-1] - 
+                                                                        uav.get_pose()))
                             
+                        uav_to_add_idx = np.argmin(uav_dist_to_goal)
+
+                        # pop the uav from grounded list and add to active
+                        uav_to_add = self.grounded_uavs.pop(uav_to_add_idx)
+                        path = self.create_paths(uav_to_add)
+                        uav_to_add.set_trajectory(path)
+                        
+                        self.active_uavs.append(uav_to_add)
+                        self.active_uavs[-1].takeoff(self.takeoff_alt)
+                        self.n_init_agents+=1
+                        
 
                     if self.active_uavs[i].get_battery() <= self.dead_battery_level:
                         uavs_to_land.append(i)
@@ -224,6 +221,43 @@ class Cons1(rclpy.node.Node):
             for uav in self.grounded_uavs:
                 uav.recharge_battery()
 
+
+    #_________________________  Tests  _________________________
+    def test_trajectory(self):
+
+        if self.check_time() > 5 and not(self.is_traj_test):
+
+            uav = self.active_uavs[0]
+
+            self.get_logger().info('Creating Test Path...')
+
+            pos = [uav_i.get_pose() for uav_i in self.active_uavs if uav_i!=uav]
+
+            grid = self.occupancy_grid.get_grid_marked(pos)
+
+            self.viz_manager.viz_map(self.occupancy_grid)
+            
+            self.path_finder.update_grid(grid)
+
+            start = uav.get_pose()
+            goal = np.array([0,0, self.takeoff_alt])
+
+            start = self.occupancy_grid.real_to_grid(start)
+            goal = self.occupancy_grid.real_to_grid(goal)
+
+            self.get_logger().info(f"Searching path from {start} to {goal}")
+            path_grid = self.path_finder.search(start, goal)
+            path = self.occupancy_grid.all_grid_to_real(path_grid)
+            
+            # # Just for displaying path. Comment the run timer while running this test!
+            self.active_uavs[0].set_trajectory(path)
+
+            self.is_traj_test = True
+
+        if self.is_traj_test:
+            self.active_uavs[0].go_to(None)            
+
+
     #_________________________  Subs  _________________________
                  
     # subscribes to the keyboard cmd, and moves the pinned node.
@@ -242,7 +276,7 @@ class Cons1(rclpy.node.Node):
 
         self.get_logger().info('Creating Path...')
 
-        pos = [uav.get_pose() for uav in self.active_uavs]
+        pos = [uav_i.get_pose() for uav_i in self.active_uavs if uav_i!=uav]
         grid = self.occupancy_grid.get_grid_marked(pos)
 
         self.viz_manager.viz_map(self.occupancy_grid)
@@ -286,8 +320,6 @@ class Cons1(rclpy.node.Node):
             all_positions = np.vstack([self.pin_agents,self.goal_pos])
             edges = get_edges(all_positions,self.comm_radius)
             
-            # print(self.goal_pos.shape[0])
-
             self.viz_manager.viz_edges(all_positions,edges)
         
         all_paths = []

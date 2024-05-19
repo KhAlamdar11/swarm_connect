@@ -87,7 +87,7 @@ class UAV:
 
 
     def go_to(self, goal):
-
+        
         if self.mode == 'go_to':
             pos = copy.deepcopy(goal)
             # only proceed if new pt is further form last point to avoid repetitive commands!
@@ -96,14 +96,19 @@ class UAV:
             self.goal = pos
 
         elif self.mode == 'trajectory':
-            # extract and delete current waypoint
-            pos = self.trajectory[0]
 
             # only proceed if new pt is further form last point to avoid repetitive commands!
-            if np.linalg.norm(pos - self.goal) < 0.05:  # Define some acceptable distance within which new commands are suppressed
-                return  # Skip sending new command if close enough
+            # if np.linalg.norm(pos - self.goal) < 0.05:  # Define some acceptable distance within which new commands are suppressed
+            #     return  # Skip sending new command if close enough
 
-            self.goal = pos
+            # if current waypoint is near, update waypoint 
+            # if np.linalg.norm(self.position - self.trajectory[0]) < 0.05:
+            #     pos = self.trajectory[0]
+            #     self.goal = pos
+            # else:
+            #     pos = self.goal
+            
+    
             if len(self.trajectory) > 1:
                 self.trajectory = self.trajectory[1:]
             else:
@@ -203,7 +208,7 @@ class UAV:
     def set_trajectory(self,traj):
         self.trajectory = traj
         self.mode = 'trajectory'
-        print(self.trajectory)
+        # print(self.trajectory)
 
     
     def get_trajectory(self):
