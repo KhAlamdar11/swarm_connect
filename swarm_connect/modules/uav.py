@@ -72,13 +72,14 @@ class UAV:
 
     #_________________________  Flight Handlers  _________________________
 
-    def takeoff(self,altitude):
+    def takeoff(self,altitude,mode_change=True):
         self.node.get_logger().info(f'Takeoff for uav {self.name} called...') if self.is_log_status else None
         while not self.takeoff_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info(f'Takeoff for {self.name} not available, waiting...') if self.is_log_status else None
         future = self.takeoff_client.call_async(Takeoff.Request(height=altitude))
         self.takeoff_alt = altitude
-        self.mode = 'go_to'
+        if mode_change:
+            self.mode = 'go_to'
 
 
     def land(self):
@@ -88,7 +89,8 @@ class UAV:
         future = self.land_client.call_async(Land.Request())
 
 
-    def go_to(self, goal):
+    def go_to(self, goal, mode = None):
+        
         if self.mode == 'go_to':
             pos = copy.deepcopy(goal)
             # only proceed if new pt is further form last point to avoid repetitive commands!
@@ -97,7 +99,6 @@ class UAV:
             self.goal = pos
 
         elif self.mode == 'trajectory':
- 
             pos = None
             if len(self.trajectory) > 1:
                 if np.linalg.norm(self.trajectory[0] - self.position) < 0.1 or self.prev_mode=='go_to':
@@ -131,10 +132,9 @@ class UAV:
         if self.mode == 'landing':
             pos = None
             if len(self.trajectory) > 1:
-                if np.linalg.norm(self.trajectory[0] - self.position) < 0.1 or self.prev_mode=='go_to':
+                if np.linalg.norm(self.trajectory[0] - self.position) < 0.1:
                     pos = self.trajectory[0]
                     self.trajectory = self.trajectory[1:]
-                    self.prev_mode = 'trajectory'
             else:
                 self.mode = 'land'
                 self.trajectory = []
@@ -180,10 +180,11 @@ class UAV:
     def set_trajectory(self,traj,mode='trajectory'):
         self.trajectory = traj
         self.mode = mode
+        # print(self.mode)
 
     def set_mode(self,mode):
         self.mode = mode
-            
+
     def get_trajectory(self):
         return self.trajectory
 

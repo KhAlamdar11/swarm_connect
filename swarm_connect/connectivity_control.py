@@ -58,7 +58,8 @@ class Cons1(rclpy.node.Node):
         indices = np.arange(self.n_agents)
         x_coords = (indices % denom) * spacing
         y_coords = (indices // denom) * spacing
-        self.charging_pos = np.column_stack((x_coords, y_coords, np.full(self.n_agents, 0.1)))
+        z_coords = np.full(self.n_agents, 0.1)
+        self.charging_stations = {(x_coords[i], y_coords[i], z_coords[i]): self.uav_ns[i] for i in range(self.n_agents)}
 
         # uav index that are below a thresh2 and above thresh1 ie. in new deployment agent range
         self.critical_uavs_idx = [] 
@@ -118,6 +119,7 @@ class Cons1(rclpy.node.Node):
             for uav in self.active_uavs:
                 if uav.get_pose() is not None:
                     uav.takeoff(self.takeoff_alt)
+                    self.free_charging_station(uav)
                     pose_count+=1
             if pose_count==self.n_init_agents:
                 self.is_init_called = True
@@ -200,11 +202,12 @@ class Cons1(rclpy.node.Node):
                         # pop the uav from grounded list and add to active
                         uav_to_add = self.grounded_uavs.pop(uav_to_add_idx)
                         path = self.create_paths(uav_to_add,self.goal_pos[-1])
-                        uav_to_add.set_trajectory(path)
+                        uav_to_add.set_trajectory(path,mode='trajectory')
                         
                         self.active_uavs.append(uav_to_add)
                         for i in range(5): # client dropping msg issue!!!
-                            self.active_uavs[-1].takeoff(self.takeoff_alt/2)
+                            self.active_uavs[-1].takeoff(self.takeoff_alt/2,mode_change=False)
+                            self.free_charging_station(self.active_uavs[-1])
                         self.n_init_agents+=1
                         
 
@@ -221,8 +224,6 @@ class Cons1(rclpy.node.Node):
                 self.n_init_agents-=1
                 self.critical_uavs_idx.remove(i)
                 # TODO: Fix bug of why land must be called twice
-                # uav_to_remove.land()
-                # uav_to_remove.land()
 
                 station = self.check_free_station(uav_to_remove)
                 self.get_logger().info(f'Free charging station: {station}')
@@ -236,8 +237,17 @@ class Cons1(rclpy.node.Node):
                 # keep landing if not yet landed...
                 if uav.mode == 'landing':
                     uav.go_to_land()
+                    # uav.land()
                 else:
                     uav.recharge_battery()
+                # pass
+        # print(self.charging_stations)
+        # print('--------------------------------------------')
+        # for uav in self.grounded_uavs:
+        #     print(uav.mode)
+        # for uav in self.active_uavs:
+        #     print(uav.mode)
+        # print('--------------------------------------------')
 
 
     #_________________________  Tests  _________________________
@@ -316,15 +326,21 @@ class Cons1(rclpy.node.Node):
 
         return path
     
+
+    def free_charging_station(self,uav):
+        name = uav.get_name()
+        for key in self.charging_stations:
+            if self.charging_stations[key] == name:
+                self.charging_stations[key] = None
+
     def check_free_station(self,uav):
         uav_pos = uav.get_pose()
-        uav_poses = [uav_i.get_pose() for uav_i in self.active_uavs if uav_i!=uav]
-        
+
         distances = []
-        for station in self.charging_pos:
-            for uav_i_pose in uav_poses:
-                if np.linalg.norm(station - uav_i_pose) > 0.15:
-                    return station
+        for pos in self.charging_stations:                
+            if self.charging_stations[pos] is None:
+                self.charging_stations[pos] = uav.get_name()
+                return pos
 
         # TODO: Add functionality to go to the nearest charging startion
         #             distances.append(np.linalg.norm(station - uav_pos))
