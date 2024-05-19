@@ -1,5 +1,5 @@
 import numpy as np
-import json
+import math
 
 import argparse
 import configparser
@@ -51,6 +51,14 @@ class Cons1(rclpy.node.Node):
                                                 self.battery_decay_rate,
                                                 self.battery_recharge_rate,
                                                 0.8))
+            
+        # initialize charging stations
+        spacing = 0.3
+        denom = math.ceil(math.sqrt(self.n_agents))
+        indices = np.arange(self.n_agents)
+        x_coords = (indices % denom) * spacing
+        y_coords = (indices // denom) * spacing
+        self.charging_pos = np.column_stack((x_coords, y_coords, np.full(self.n_agents, 0.1)))
 
         # uav index that are below a thresh2 and above thresh1 ie. in new deployment agent range
         self.critical_uavs_idx = [] 
@@ -213,13 +221,23 @@ class Cons1(rclpy.node.Node):
                 self.n_init_agents-=1
                 self.critical_uavs_idx.remove(i)
                 # TODO: Fix bug of why land must be called twice
-                uav_to_remove.land()
-                uav_to_remove.land()
+                # uav_to_remove.land()
+                # uav_to_remove.land()
 
+                station = self.check_free_station(uav_to_remove)
+                self.get_logger().info(f'Free charging station: {station}')
+                
+                # plan path to charging station
+                path = self.create_paths(uav_to_remove,station)
+                uav_to_remove.set_trajectory(path,'landing')
 
             # recharge battery of UAVs on ground!
             for uav in self.grounded_uavs:
-                uav.recharge_battery()
+                # keep landing if not yet landed...
+                if uav.mode == 'landing':
+                    uav.go_to_land()
+                else:
+                    uav.recharge_battery()
 
 
     #_________________________  Tests  _________________________
@@ -297,7 +315,23 @@ class Cons1(rclpy.node.Node):
         # self.all_paths.append(path)
 
         return path
+    
+    def check_free_station(self,uav):
+        uav_pos = uav.get_pose()
+        uav_poses = [uav_i.get_pose() for uav_i in self.active_uavs if uav_i!=uav]
+        
+        distances = []
+        for station in self.charging_pos:
+            for uav_i_pose in uav_poses:
+                if np.linalg.norm(station - uav_i_pose) > 0.15:
+                    return station
 
+        # TODO: Add functionality to go to the nearest charging startion
+        #             distances.append(np.linalg.norm(station - uav_pos))
+        #         else:
+        #             distances.append(math.inf)
+        
+        # for i in 
 
     #_________________________  Viz  _________________________
 

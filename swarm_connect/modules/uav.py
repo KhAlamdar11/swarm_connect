@@ -31,7 +31,7 @@ class UAV:
         self.speed = 0.2
 
         # defines if the uav is ready for go to or requires to follow its current traj first!
-        self.mode = 'go_to'
+        self.mode = 'land'
         self.prev_mode = 'go_to'
         self.trajectory = []
 
@@ -78,6 +78,7 @@ class UAV:
             self.get_logger().info(f'Takeoff for {self.name} not available, waiting...') if self.is_log_status else None
         future = self.takeoff_client.call_async(Takeoff.Request(height=altitude))
         self.takeoff_alt = altitude
+        self.mode = 'go_to'
 
 
     def land(self):
@@ -123,59 +124,37 @@ class UAV:
             
             future = self.go_to_client.call_async(request)
 
+    def go_to_land(self):
 
-    # def go_to(self, goal):
-
-    #     if self.mode == 'go_to':
-    #         pos = copy.deepcopy(goal)
-    #     elif self.mode == 'trajectory':
-    #         # extract and delete current waypoint
-    #         pos = self.trajectory[0]
-    #         if len(self.trajectory) > 1:
-    #             self.trajectory = self.trajectory[1:]
-    #         else:
-    #             self.mode = 'go_to'
-    #             self.trajectory = []
-
-    #     current_distance = np.linalg.norm(self.position - pos)
-    #     if current_distance < 0.05:  # Define some acceptable distance within which new commands are suppressed
-    #         return  # Skip sending new command if close enough
-
-    #     t = current_distance / self.speed
-    #     t_s, t_ns = self.get_sec_nanosec(t)
+        # TODO: Remove this redundant check!
         
-    #     while not self.go_to_client.wait_for_service(timeout_sec=1.0):
-    #         self.node.get_logger().info(f'Goto for {self.name} not available, waiting...') if self.is_log_status else None
-    #     request = GoTo.Request(group_mask=0,
-    #                         relative=False,
-    #                         goal=Point(x=pos[0], y=pos[1], z=pos[2]),
-    #                         yaw=self.attitude[2],
-    #                         duration=Duration(sec=t_s, nanosec=t_ns))
-        
-    #     future = self.go_to_client.call_async(request)
+        if self.mode == 'landing':
+            pos = None
+            if len(self.trajectory) > 1:
+                if np.linalg.norm(self.trajectory[0] - self.position) < 0.1 or self.prev_mode=='go_to':
+                    pos = self.trajectory[0]
+                    self.trajectory = self.trajectory[1:]
+                    self.prev_mode = 'trajectory'
+            else:
+                self.mode = 'land'
+                self.trajectory = []
+                self.land()
 
-    # def go_to(self, goal):
-    #     pos = copy.deepcopy(goal)
+        if pos is not None:
+            current_distance = np.linalg.norm(self.position - pos)
 
-    #     old_new_goal_dist = np.linalg.norm(self.position-pos)
-
-    #     if old_new_goal_dist > 0.2:
-    #         self.node.get_logger().info(f'Goto for uav {self.name} called...') if self.is_log_status else None   
+            t = current_distance / self.speed
+            t_s, t_ns = self.get_sec_nanosec(t)
             
-    #         # compute duration for constant speed, t = d/v
-    #         # contributed by Dr. Nada
-    #         t = np.linalg.norm(self.position - pos) / self.speed 
-    #         t_s, t_ns = self.get_sec_nanosec(t)
+            while not self.go_to_client.wait_for_service(timeout_sec=1.0):
+                self.node.get_logger().info(f'Goto for {self.name} not available, waiting...') if self.is_log_status else None
+            request = GoTo.Request(group_mask=0,
+                                relative=False,
+                                goal=Point(x=pos[0], y=pos[1], z=pos[2]),
+                                yaw=self.attitude[2],
+                                duration=Duration(sec=t_s, nanosec=t_ns))
             
-    #         while not self.go_to_client.wait_for_service(timeout_sec=1.0):
-    #             self.node.get_logger().info(f'Goto for {self.name} not available, waiting...') if self.is_log_status else None
-    #         request = GoTo.Request(group_mask=0,
-    #                             relative=False,
-    #                             goal=Point(x=pos[0], y=pos[1], z=pos[2]),
-    #                             yaw=self.attitude[2],
-    #                             duration=Duration(sec=t_s, nanosec=t_ns))
-            
-    #         future = self.go_to_client.call_async(request)
+            future = self.go_to_client.call_async(request)
 
 
     #_________________________  Callbacks  _________________________
@@ -198,15 +177,15 @@ class UAV:
 
     #_________________________  Setters/Getters  _________________________
 
-    def set_trajectory(self,traj):
+    def set_trajectory(self,traj,mode='trajectory'):
         self.trajectory = traj
-        self.mode = 'trajectory'
-        # print(self.trajectory)
+        self.mode = mode
 
-    
+    def set_mode(self,mode):
+        self.mode = mode
+            
     def get_trajectory(self):
         return self.trajectory
-    
 
     def get_pose(self):
         return self.position
