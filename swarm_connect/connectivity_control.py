@@ -152,7 +152,6 @@ class Cons1(rclpy.node.Node):
 
             # call go to to get UAVs to new positions and update batteries
             uavs_to_land = []
-            to_add = []
             for i in range(len(self.active_uavs)):
                 self.active_uavs[i].go_to(self.goal_pos[i])
                 
@@ -192,7 +191,7 @@ class Cons1(rclpy.node.Node):
 
                         # pop the uav from grounded list and add to active
                         uav_to_add = self.grounded_uavs.pop(uav_to_add_idx)
-                        path = self.create_paths(uav_to_add)
+                        path = self.create_paths(uav_to_add,self.goal_pos[-1])
                         uav_to_add.set_trajectory(path)
                         
                         self.active_uavs.append(uav_to_add)
@@ -273,7 +272,7 @@ class Cons1(rclpy.node.Node):
         elapsed_seconds = elapsed_time.nanoseconds / 1e9
         return elapsed_seconds  
 
-    def create_paths(self,uav):
+    def create_paths(self,uav,goal):
 
         self.get_logger().info('Creating Path...')
 
@@ -289,7 +288,7 @@ class Cons1(rclpy.node.Node):
         uav_pos[-1] = self.takeoff_alt/2
 
         start = self.occupancy_grid.real_to_grid(uav_pos)
-        goal = self.occupancy_grid.real_to_grid(self.goal_pos[-1])
+        goal = self.occupancy_grid.real_to_grid(goal)
 
         self.get_logger().info(f"Searching path from {uav.get_pose()} to {self.goal_pos[-1]}")
         path_grid = self.path_finder.search(start, goal)
