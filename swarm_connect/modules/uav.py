@@ -32,6 +32,7 @@ class UAV:
 
         # defines if the uav is ready for go to or requires to follow its current traj first!
         self.mode = 'go_to'
+        self.prev_mode = 'go_to'
         self.trajectory = []
 
         self.old_goal = np.array([1000.0,1000.0])
@@ -87,7 +88,6 @@ class UAV:
 
 
     def go_to(self, goal):
-        
         if self.mode == 'go_to':
             pos = copy.deepcopy(goal)
             # only proceed if new pt is further form last point to avoid repetitive commands!
@@ -96,39 +96,32 @@ class UAV:
             self.goal = pos
 
         elif self.mode == 'trajectory':
-
-            # only proceed if new pt is further form last point to avoid repetitive commands!
-            # if np.linalg.norm(pos - self.goal) < 0.05:  # Define some acceptable distance within which new commands are suppressed
-            #     return  # Skip sending new command if close enough
-
-            # if current waypoint is near, update waypoint 
-            # if np.linalg.norm(self.position - self.trajectory[0]) < 0.05:
-            #     pos = self.trajectory[0]
-            #     self.goal = pos
-            # else:
-            #     pos = self.goal
-            
-    
+ 
+            pos = None
             if len(self.trajectory) > 1:
-                self.trajectory = self.trajectory[1:]
+                if np.linalg.norm(self.trajectory[0] - self.position) < 0.1 or self.prev_mode=='go_to':
+                    pos = self.trajectory[0]
+                    self.trajectory = self.trajectory[1:]
+                    self.prev_mode = 'trajectory'
             else:
                 self.mode = 'go_to'
                 self.trajectory = []
 
-        current_distance = np.linalg.norm(self.position - pos)
+        if pos is not None:
+            current_distance = np.linalg.norm(self.position - pos)
 
-        t = current_distance / self.speed
-        t_s, t_ns = self.get_sec_nanosec(t)
-        
-        while not self.go_to_client.wait_for_service(timeout_sec=1.0):
-            self.node.get_logger().info(f'Goto for {self.name} not available, waiting...') if self.is_log_status else None
-        request = GoTo.Request(group_mask=0,
-                            relative=False,
-                            goal=Point(x=pos[0], y=pos[1], z=pos[2]),
-                            yaw=self.attitude[2],
-                            duration=Duration(sec=t_s, nanosec=t_ns))
-        
-        future = self.go_to_client.call_async(request)
+            t = current_distance / self.speed
+            t_s, t_ns = self.get_sec_nanosec(t)
+            
+            while not self.go_to_client.wait_for_service(timeout_sec=1.0):
+                self.node.get_logger().info(f'Goto for {self.name} not available, waiting...') if self.is_log_status else None
+            request = GoTo.Request(group_mask=0,
+                                relative=False,
+                                goal=Point(x=pos[0], y=pos[1], z=pos[2]),
+                                yaw=self.attitude[2],
+                                duration=Duration(sec=t_s, nanosec=t_ns))
+            
+            future = self.go_to_client.call_async(request)
 
 
     # def go_to(self, goal):

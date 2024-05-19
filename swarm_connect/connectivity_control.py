@@ -196,7 +196,8 @@ class Cons1(rclpy.node.Node):
                         uav_to_add.set_trajectory(path)
                         
                         self.active_uavs.append(uav_to_add)
-                        self.active_uavs[-1].takeoff(self.takeoff_alt)
+                        for i in range(5): # client dropping msg issue!!!
+                            self.active_uavs[-1].takeoff(self.takeoff_alt/2)
                         self.n_init_agents+=1
                         
 
@@ -285,7 +286,7 @@ class Cons1(rclpy.node.Node):
 
         uav_pos = uav.get_pose()
         # start path from a bit of heigh in case UAV hasnt fully taken off
-        uav_pos[-1] = self.takeoff_alt
+        uav_pos[-1] = self.takeoff_alt/2
 
         start = self.occupancy_grid.real_to_grid(uav_pos)
         goal = self.occupancy_grid.real_to_grid(self.goal_pos[-1])
