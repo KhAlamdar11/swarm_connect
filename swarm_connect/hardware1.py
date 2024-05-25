@@ -60,7 +60,15 @@ class Test1(rclpy.node.Node):
         # init flags
         self.pose_received = False
         self.pose = None
-        self.goal = None
+        self.goal1 = [0.5,0.0,0.15]
+        self.goal2 = [0.5,-0.25,0.15]
+        self.goal3 = [0.25,-0.25,0.15]
+        self.goal4 = [0.25,0.0,0.15]
+
+        self.is_goal1 = False
+        self.is_goal2 = False
+        self.is_goal3 = False
+        self.is_goal4 = False
 
         self.is_init = False
         self.is_takeoff = False
@@ -91,51 +99,34 @@ class Test1(rclpy.node.Node):
 
         self.run_c = self.create_timer(1/self.rate, self.run)
 
-    
     def run(self):
-        # print(self.check_time())
-        # if not(self.is_takeoff):
-        #     msg = Twist()
-        #     msg.linear.x = 0.0
-        #     msg.linear.y = 0.0
-        #     msg.linear.z = 0.0
-        #     msg.angular.z = 0.0
-        #     self.publisher_.publish(msg)
-        
-        if self.goal is None and self.check_time() > 2:
-            if self.pose is None:
-                self.goal = [self.pose[0], self.pose[1], self.pose[2]+0.1] 
-
+        print(self.check_time())
         if not(self.is_takeoff) and self.check_time() > 4:
-            print(self.goal)
-            # print('Taking off')
-            # self.is_takeoff=True
-            # self.takeoff(0.1)
-        
-        # if not(self.is_land) and self.is_takeoff is True and self.check_time() > 8:      
-        #     msg = Twist()
-        #     msg.linear.x = 0.0002
-        #     msg.linear.y = 0.0
-        #     if self.pose[2] < 0.15:
-        #         msg.linear.z = 0.002
-        #     else:
-        #         msg.linear.z = 0.0
-        #     msg.angular.z = 0.0
-        #     self.publisher_.publish(msg)
+            print('Taking off')
+            self.is_takeoff=True
+            self.takeoff(0.15)
 
-        # if not(self.is_land) and self.is_takeoff is True and self.check_time() > 7:
-        #     msg = Hover()
-        #     msg.vx = -0.005
-        #     msg.vy = 0.00000
-        #     msg.yaw_rate = 0.0
-        #     msg.z_distance = 0.15
-        #     self.publisher_.publish(msg)
+        if not(self.is_goal1) and self.is_takeoff and self.check_time() > 6:
+            self.is_goal1 = True     
+            self.go_to(self.goal1)
 
-        if not(self.is_land) and self.is_takeoff is True and self.check_time() > 7:
+        if not(self.is_goal2) and self.is_goal1 and self.check_time() > 12:
+            self.is_goal2 = True 
+            self.go_to(self.goal2)
+
+        if not(self.is_goal3) and self.is_goal2 and self.check_time() > 14:
+            self.is_goal3 = True 
+            self.go_to(self.goal3)
+
+        if not(self.is_goal4) and self.goal3 and self.check_time() > 18:
+            self.is_goal4 = True 
+            self.go_to(self.goal4)           
+
+        if not(self.is_land) and self.check_time() > 24:
             print('Landing')
             self.is_land=True
             self.land()
-        # pass
+
 
     def go_to(self, goal, mode = None):
     
@@ -150,8 +141,8 @@ class Test1(rclpy.node.Node):
             request = GoTo.Request(group_mask=0,
                                 relative=False,
                                 goal=Point(x=goal[0], y=goal[1], z=goal[2]),
-                                yaw=self.attitude[2],
-                                duration=Duration(sec=t_s, nanosec=t_ns))
+                                yaw=self.pose[-1],
+                                duration=Duration(sec=2, nanosec=0))
             
             future = self.go_to_client.call_async(request)
 
