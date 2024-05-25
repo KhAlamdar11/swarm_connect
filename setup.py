@@ -20,7 +20,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            "connectivity_control = swarm_connect.connectivity_control:main"
+            "connectivity_control = swarm_connect.connectivity_control:main",
+            "hardware1 = swarm_connect.hardware1:main",
+            "transform_listener = swarm_connect.transform_listener:main"
         ],
     },
 )
