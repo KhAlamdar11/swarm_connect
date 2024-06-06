@@ -112,7 +112,7 @@ class Test1(rclpy.node.Node):
             self.is_takeoff=True
             self.takeoff(1,0.25) 
             self.takeoff(2,0.25)
-            # self.takeoff(3,0.25) 
+            self.takeoff(3,0.25) 
 
         # if not(self.is_goal1) and self.check_time() > 8:
         #     goal1,goal2 = [0.2,-0.2,0.25], [0.2,0.2,0.25]
@@ -126,12 +126,12 @@ class Test1(rclpy.node.Node):
         #     self.go_to(2,goal2)       
         #     self.is_goal2 = True
 
-        if not(self.is_land) and self.check_time() > 12:
+        if not(self.is_land) and self.check_time() > 8:
             print('Landing')
             self.is_land=True
             self.land(1)
             self.land(2)
-            # self.land(3)
+            self.land(3)
 
 
     def go_to(self, n, goal, mode = None):

@@ -103,7 +103,7 @@ class UAV:
         if self.mode == 'go_to':
             pos = copy.deepcopy(goal)
             # only proceed if new pt is further form last point to avoid repetitive commands!
-            if np.linalg.norm(pos - self.goal) < 0.05:  # Define some acceptable distance within which new commands are suppressed
+            if np.linalg.norm(pos - self.goal) < 0.03:  # Define some acceptable distance within which new commands are suppressed
                 return  # Skip sending new command if close enough
             self.goal = pos
 
@@ -130,7 +130,7 @@ class UAV:
                                 relative=False,
                                 goal=Point(x=pos[0], y=pos[1], z=pos[2]),
                                 yaw=self.attitude[2],
-                                duration=Duration(sec=2, nanosec=0))
+                                duration=Duration(sec=1, nanosec=0))
             
             future = self.go_to_client.call_async(request)
 

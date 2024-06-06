@@ -117,7 +117,7 @@ class Cons1(rclpy.node.Node):
             pose_count = 0
             for uav in self.active_uavs:
                 if uav.get_pose() is not None:
-                    # uav.takeoff(self.takeoff_alt)
+                    uav.takeoff(self.takeoff_alt)
                     self.free_charging_station(uav)
                     pose_count+=1
             if pose_count==self.n_init_agents:
@@ -192,7 +192,7 @@ class Cons1(rclpy.node.Node):
             # call go to to get UAVs to new positions and update batteries
             uavs_to_land = []
             for i in range(len(self.active_uavs)):
-                # self.active_uavs[i].go_to(self.goal_pos[i])
+                self.active_uavs[i].go_to(self.goal_pos[i])
                 
                 # battery management below
                 if i in self.battery_decay_select or 1000 in self.battery_decay_select:
@@ -211,7 +211,7 @@ class Cons1(rclpy.node.Node):
                 self.goal_pos = np.delete(self.goal_pos, i, axis=0)
                 self.n_init_agents-=1
                 # TODO: Fix bug of why land must be called twice
-                # uav_to_remove.land()
+                uav_to_remove.land()
 
 
                 # pass
