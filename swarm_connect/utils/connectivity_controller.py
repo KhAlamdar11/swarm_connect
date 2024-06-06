@@ -11,7 +11,7 @@ class ConnectivityController:
         self.fiedler_vector = None
 
 
-    def __call__(self, position):
+    def __call__(self, position, battery):
 
         nv = position.shape[0]
         
@@ -19,6 +19,8 @@ class ConnectivityController:
         
         self.fiedler_value = ac
         self.fiedler_vector = eigV
+
+        battery = np.concatenate((np.array([1.0, 1.0]), battery))
 
         # print(self.fiedler_value)
 
@@ -35,8 +37,11 @@ class ConnectivityController:
                     else:
                         # k=0
                         k = -(1 / (self.params['sigma']**2)) * 100 * (A[i, j] * ((eigV[i] - eigV[j])**2))
-                    dotx[i] += k * (positionx[i] - positionx[j])
-                    doty[i] += k * (positiony[i] - positiony[j])
+                    
+                    batt_gain = self.battery_gain(battery[j])
+
+                    dotx[i] += k * (positionx[i] - positionx[j]) * 5*batt_gain
+                    doty[i] += k * (positiony[i] - positiony[j]) * 5*batt_gain
         
         dotxy = np.column_stack([dotx, doty]) * self.params['gainConnectivity']
         
@@ -45,6 +50,11 @@ class ConnectivityController:
         dotxy = self.clip(dotxy)
 
         return dotxy
+    
+    def battery_gain(self,b):
+        # print(self.params['tau'])
+        return np.exp((0.14 - b) / 0.2) + 1.2
+
 
 
     def calculate_repulsion_forces(self,positions, threshold, repulsion_strength):

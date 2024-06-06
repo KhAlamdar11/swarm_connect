@@ -8,7 +8,7 @@ from matplotlib.colors import Normalize
 import math
 import random
 
-from swarm_connect_ros.utils.connectivity_controller import ConnectivityController
+from swarm_connect.utils.connectivity_controller import ConnectivityController
 from swarm_connect_ros.utils.lattice import *
 
 
@@ -129,7 +129,7 @@ class ConnectivityClass():
 
 
 
-    def reset(self,is_gen_lattice=True,i=0):
+    def reset(self,battery,is_gen_lattice=True,i=0):
 
         self.t = 0
 
@@ -151,7 +151,8 @@ class ConnectivityClass():
         elif self.robot_trajectory_argument == 'do_not_move':
             self.robot_trajectory = 'do_not_move'
 
-        _, _, self.end_node = self.get_curve()
+        if self.robot_trajectory != 'do_not_move':
+            _, _, self.end_node = self.get_curve()
         
         vector_se = self.end_node - self.start_node
         magnitude_se = np.linalg.norm(vector_se)
@@ -172,7 +173,7 @@ class ConnectivityClass():
         # create controller
         self.connectivity_controller = ConnectivityController(self.controller_params)
 
-        self.controller()
+        self.controller(battery)
 
         # return None
 
@@ -241,8 +242,8 @@ class ConnectivityClass():
     #____________________  Controller  ________________________
 
 
-    def controller(self):
-        return self.connectivity_controller(self.get_positions())
+    def controller(self,battery):
+        return self.connectivity_controller(self.get_positions(),battery)
 
 
     #____________________  Utils  ________________________

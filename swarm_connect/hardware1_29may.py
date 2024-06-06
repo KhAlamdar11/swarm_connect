@@ -92,14 +92,8 @@ class Test1(rclpy.node.Node):
         self.subscription2 = self.create_subscription(PoseStamped,'/cf2/pose', self.pose_cb2,10)
         self.go_to_client2 = self.create_client(GoTo, f'/cf2/go_to')
 
-        self.takeoff_client3 = self.create_client(Takeoff, '/cf3/takeoff')
-        self.land_client3 = self.create_client(Land, f'/cf3/land')
-        self.subscription3 = self.create_subscription(PoseStamped,'/cf3/pose', self.pose_cb3,10)
-        self.go_to_client3 = self.create_client(GoTo, f'/cf3/go_to')
-
         self.cf1_pose = []
         self.cf2_pose = []
-        self.cf3_pose = []
         
         self.is_goal1 = False
 
@@ -110,12 +104,11 @@ class Test1(rclpy.node.Node):
         if not(self.is_takeoff) and self.check_time() > 4:
             print('Taking off')
             self.is_takeoff=True
-            self.takeoff(1,0.25) 
-            self.takeoff(2,0.25)
-            # self.takeoff(3,0.25) 
+            self.takeoff(1,0.2) 
+            self.takeoff(2,0.2) 
 
         # if not(self.is_goal1) and self.check_time() > 8:
-        #     goal1,goal2 = [0.2,-0.2,0.25], [0.2,0.2,0.25]
+        #     goal1,goal2 = [0.25,0.25,0.25], [-0.25,-0.25,0.25]
         #     self.go_to(1,goal1)
         #     self.go_to(2,goal2)       
         #     self.is_goal1 = True
@@ -126,12 +119,46 @@ class Test1(rclpy.node.Node):
         #     self.go_to(2,goal2)       
         #     self.is_goal2 = True
 
-        if not(self.is_land) and self.check_time() > 12:
+        if not(self.is_land) and self.check_time() > 10 \
+                             and self.check_time() < 14:
             print('Landing')
             self.is_land=True
             self.land(1)
+            # self.land(2)
+
+        if self.is_land and self.check_time() > 14:
+            print('Landing')
+            self.is_land=False
+            # self.land(1)
             self.land(2)
-            # self.land(3)
+
+    def run(self):
+        print(self.check_time())
+        if not(self.is_takeoff) and self.check_time() > 4:
+            print('Taking off')
+            self.is_takeoff=True
+            self.takeoff(0.15)
+
+        if not(self.is_goal1) and self.is_takeoff and self.check_time() > 6:
+            self.is_goal1 = True     
+            self.go_to(self.goal1)
+
+        if not(self.is_goal2) and self.is_goal1 and self.check_time() > 10:
+            self.is_goal2 = True 
+            self.go_to(self.goal2)
+
+        if not(self.is_goal3) and self.is_goal2 and self.check_time() > 14:
+            self.is_goal3 = True 
+            self.go_to(self.goal3)
+
+        if not(self.is_goal4) and self.goal3 and self.check_time() > 18:
+            self.is_goal4 = True 
+            self.go_to(self.goal4)           
+
+        if not(self.is_land) and self.check_time() > 22:
+            print('Landing')
+            self.is_land=True
+            self.land()
 
 
     def go_to(self, n, goal, mode = None):
@@ -178,15 +205,9 @@ class Test1(rclpy.node.Node):
                 self.get_logger().info('Takeoff not available, waiting...')
             future = self.takeoff_client2.call_async(Takeoff.Request(height=altitude, duration=Duration(sec=duration_sec, 
                                                                                nanosec=duration_nanosec)))
-        
-        elif n == 3:
-            while not self.takeoff_client3.wait_for_service(timeout_sec=1.0):
-                self.get_logger().info('Takeoff not available, waiting...')
-            future = self.takeoff_client3.call_async(Takeoff.Request(height=altitude, duration=Duration(sec=duration_sec, 
-                                                                               nanosec=duration_nanosec)))
 
 
-    def land(self, n, duration=1):        
+    def land(self, n, duration=2):        
         duration_sec = int(duration)
         duration_nanosec = int((duration - duration_sec) * 1e9)
         
@@ -201,12 +222,6 @@ class Test1(rclpy.node.Node):
             request = self.land_client2.call_async(Land.Request(duration=Duration(sec=duration_sec, 
                                                                                     nanosec=duration_nanosec)))
 
-        elif n==3:
-            while not self.land_client3.wait_for_service(timeout_sec=1.0):
-                self.get_logger().info('Land not available, waiting...')
-            request = self.land_client3.call_async(Land.Request(duration=Duration(sec=duration_sec, 
-                                                                                    nanosec=duration_nanosec)))
-        
 
     def pose_cb(self, msg):
         x = msg.pose.position.x
@@ -243,25 +258,6 @@ class Test1(rclpy.node.Node):
         # self.get_logger().info(f"Orientation in RPY: (Roll: {roll}, Pitch: {pitch}, Yaw: {yaw})")
 
         self.cf2_pose = [x,y,z,roll,pitch,yaw]
-
-    def pose_cb3(self, msg):
-        x = msg.pose.position.x
-        y = msg.pose.position.y
-        z = msg.pose.position.z
-
-        qx = msg.pose.orientation.x
-        qy = msg.pose.orientation.y
-        qz = msg.pose.orientation.z
-        qw = msg.pose.orientation.w
-
-        (roll, pitch, yaw) = tf_transformations.euler_from_quaternion([qx, qy, qz, qw])
-
-        # Print the extracted values
-        # self.get_logger().info(f"Position: ({x}, {y}, {z})")
-        # self.get_logger().info(f"Orientation in RPY: (Roll: {roll}, Pitch: {pitch}, Yaw: {yaw})")
-
-        self.cf3_pose = [x,y,z,roll,pitch,yaw]
-
             
 def main():
     parser = argparse.ArgumentParser()

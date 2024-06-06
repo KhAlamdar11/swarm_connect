@@ -43,7 +43,7 @@ class VisualizationManager:
             marker.scale.x = 0.15
             marker.scale.y = 0.15
             marker.scale.z = pin_agents[i,2]*1.2
-            marker.color = ColorRGBA(r=1.0, g=1.0, b=0.0, a=1.0)
+            marker.color = ColorRGBA(r=1.0, g=0.0, b=0.0, a=1.0)
             marker.lifetime = rclpy.duration.Duration(seconds=0.1).to_msg()
 
             # Replace with the actual angle

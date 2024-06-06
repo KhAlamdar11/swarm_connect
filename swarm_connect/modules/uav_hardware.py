@@ -77,8 +77,7 @@ class UAV:
         while not self.takeoff_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info(f'Takeoff for {self.name} not available, waiting...') if self.is_log_status else None
         
-        for i in range(5):
-            future = self.takeoff_client.call_async(Takeoff.Request(height=altitude,
+        future = self.takeoff_client.call_async(Takeoff.Request(height=altitude,
                                                                     duration=Duration(sec=2, 
                                                                     nanosec=0)))
 
@@ -95,8 +94,7 @@ class UAV:
         self.node.get_logger().info(f'Land for uav {self.name} called...') if self.is_log_status else None
         while not self.land_client.wait_for_service(timeout_sec=1.0):
             self.node.get_logger().info(f'Land for {self.name} not available, waiting...') if self.is_log_status else None
-        for i in range(5):
-            future = self.land_client.call_async(Land.Request(duration=Duration(sec=duration_sec, 
+        future = self.land_client.call_async(Land.Request(duration=Duration(sec=duration_sec, 
                                                                                nanosec=duration_nanosec)))
 
 
@@ -132,7 +130,7 @@ class UAV:
                                 relative=False,
                                 goal=Point(x=pos[0], y=pos[1], z=pos[2]),
                                 yaw=self.attitude[2],
-                                duration=Duration(sec=t_s, nanosec=t_ns))
+                                duration=Duration(sec=2, nanosec=0))
             
             future = self.go_to_client.call_async(request)
 

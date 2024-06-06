@@ -33,6 +33,10 @@ In case of not having localization available and just for testing, you can use t
 ros2 launch crazyflie_examples keyboard_velmux_launch.py
 ```
 
+```bash
+ros2 launch motion_capture_tracking launch.py
+```
+
 :warning: **Operating w/o Localization!**
 
 After successive takeoffs and landings, the stability of the UAV worsens. It is recommended to relaunch the application after each takeoff! Ideally, use the localization system!

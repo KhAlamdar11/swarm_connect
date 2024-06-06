@@ -5,19 +5,61 @@
 **connectivity_control:**
 
 ```bash
+bash ~/CrazySim/crazyflie-firmware/tools/crazyflie-simulation/simulator_files/gazebo/launch/sitl_multiagent_square.sh -n 7 -m crazyflie
+```
+
+after some time (10s)
+
+```bash
+ros2 launch crazyflie launch.py backend:=cflib
+```
+
+```bash
 ros2 run swarm_connect connectivity_control /home/anton-superior/ros2_ws/src/swarm_connect/cfg/cfg1.cfg
 ```
 
-Todo:
 
-- Ensure that path planning via A* makes sense
-- Make the trajectory tracker better (use trajectory upload options)
-- Allow charging stations (?)
+**hardware_connectivity_control:**
 
-May 18, 1.22 -> At some point, we must stop the development of the thesis and start the documentation...
+Add updates to land uavs after a certain time and detach all controllers
 
-May 18, 22.11 -> What did I mean by 'stop the development'?
+Note: Remember to comment uncomment number of crazyflies in the crazyflies config file every time you change it in sim...
 
+```bash
+bash ~/CrazySim/crazyflie-firmware/tools/crazyflie-simulation/simulator_files/gazebo/launch/sitl_multiagent_square.sh -n 2 -m crazyflie
+```
+
+```bash
+ros2 launch crazyflie launch.py backend:=cflib
+```
+
+```bash
+ros2 run teleop_twist_keyboard teleop_twist_keyboard
+```
+
+- cfg_2
+
+2 UAVs, no battery decay just simple formation control, diamond formation
+
+```bash
+ros2 run swarm_connect hardware_connectivity_control /home/anton-superior/ros2_ws/src/swarm_connect/cfg/cfg2.cfg
+```
+
+- cfg_3
+
+2 UAVs, no battery decay just simple formation control, line formation
+
+```bash
+ros2 run swarm_connect hardware_connectivity_control /home/anton-superior/ros2_ws/src/swarm_connect/cfg/cfg3.cfg
+```
+
+<!-- - cfg_4
+
+3 UAVs, 2 in air, battery management re-enacted.
+
+```bash
+ros2 run swarm_connect hardware_connectivity_control /home/anton-superior/ros2_ws/src/swarm_connect/cfg/cfg3.cfg
+``` -->
 
 
 

@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             "connectivity_control = swarm_connect.connectivity_control:main",
+            "hardware_connectivity_control = swarm_connect.hardware_connectivity_control:main",
             "hardware1 = swarm_connect.hardware1:main",
             "transform_listener = swarm_connect.transform_listener:main"
         ],
