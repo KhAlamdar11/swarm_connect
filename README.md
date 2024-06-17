@@ -81,7 +81,9 @@ after some time (10s)
 ros2 launch crazyflie launch.py backend:=cflib
 ```
 
-`ros2 run swarm_connect_ros basic1 /home/anton-superior/ros2_ws/src/swarm_connect_ros/cfg/cros_v12.cfg`
+```bash
+ros2 run swarm_connect connectivity_control /home/anton-superior/ros2_ws/src/swarm_connect/cfg/cfg1.cfg
+```
 
 run keyboard:
 

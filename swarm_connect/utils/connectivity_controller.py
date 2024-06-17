@@ -38,10 +38,10 @@ class ConnectivityController:
                         # k=0
                         k = -(1 / (self.params['sigma']**2)) * 100 * (A[i, j] * ((eigV[i] - eigV[j])**2))
                     
-                    batt_gain = self.battery_gain(battery[j])
+                    # batt_gain = self.battery_gain(battery[j])
 
-                    dotx[i] += k * (positionx[i] - positionx[j]) * 5*batt_gain
-                    doty[i] += k * (positiony[i] - positiony[j]) * 5*batt_gain
+                    dotx[i] += k * (positionx[i] - positionx[j]) #* 5*batt_gain
+                    doty[i] += k * (positiony[i] - positiony[j]) #* 5*batt_gain
         
         dotxy = np.column_stack([dotx, doty]) * self.params['gainConnectivity']
         

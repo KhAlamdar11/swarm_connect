@@ -80,7 +80,8 @@ class Cons1(rclpy.node.Node):
 
         self.is_paths_created = False
         self.is_pt_reached = True
-
+        self.fiedler = []
+        self.n_array_list = []
         
         self.occupancy_grid = OccupancyGrid3D(self.map_range,self.map_origin,self.map_res)
 
@@ -129,7 +130,12 @@ class Cons1(rclpy.node.Node):
 
         if self.is_init_called and self.check_time() > 5:
 
-            self.connectivity_controller.reset(is_gen_lattice = False)
+            # get batteries
+            battery = []
+            for i in range(len(self.active_uavs)):
+                battery.append(self.active_uavs[i].get_battery())
+            battery = np.array(battery)
+            self.connectivity_controller.reset(battery=battery,is_gen_lattice = False)
 
             # Get all UAV poses
             uav_pos = np.array([uav.get_pose() for uav in self.active_uavs])
@@ -155,10 +161,23 @@ class Cons1(rclpy.node.Node):
         '''
         if self.is_form_called and self.check_time() > 12:
             # run controller and get new positions
-            v = self.connectivity_controller.controller()
+
+
+            # get batteries
+            battery = []
+            for i in range(len(self.active_uavs)):
+                battery.append(self.active_uavs[i].get_battery())
+            battery = np.array(battery)
+            v = self.connectivity_controller.controller(battery)
             p, done = self.connectivity_controller.step(v)
             self.pin_agents[:,:2] = p[:2]
             self.goal_pos[:,:2] = p[2:]
+
+            # save fiedler value
+            self.fiedler.append(self.connectivity_controller.get_fiedler())
+            np.save('hardware_fiedler.npy', np.array(self.fiedler))  
+            self.n_array_list.append(self.connectivity_controller.get_n_agents())
+            np.save('hardware_n_agents.npy', np.array(self.n_array_list))  
 
             # call go to to get UAVs to new positions and update batteries
             uavs_to_land = []
@@ -182,7 +201,12 @@ class Cons1(rclpy.node.Node):
                         self.connectivity_controller.add_agent(i)  
                             
                         self.get_logger().info(f'Ading new agent at {self.goal_pos[-1]}...')
-                        v = self.connectivity_controller.controller()
+                        # get batteries
+                        battery = []
+                        for i in range(len(self.active_uavs)):
+                            battery.append(self.active_uavs[i].get_battery())
+                        battery = np.array(battery)
+                        v = self.connectivity_controller.controller(battery)
                         p, done = self.connectivity_controller.step(v)
                         self.pin_agents[:,:2] = p[:2]
                         # duplicate last row to increase size of goal positions and keep heigh var

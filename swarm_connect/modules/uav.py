@@ -95,7 +95,7 @@ class UAV:
         self.node.get_logger().info(f'Land for uav {self.name} called...') if self.is_log_status else None
         while not self.land_client.wait_for_service(timeout_sec=1.0):
             self.node.get_logger().info(f'Land for {self.name} not available, waiting...') if self.is_log_status else None
-        for i in range(5):
+        for i in range(10):
             future = self.land_client.call_async(Land.Request(duration=Duration(sec=duration_sec, 
                                                                                nanosec=duration_nanosec)))
 
