@@ -2,7 +2,4 @@
 __pycache__
 .idea/
 
-/swarm_connect/hardware_connectivity_control.py
-/swarm_connect/hardware1_29may.py
-/swarm_connect/hardware1.py
-/swarm_connect/transform_listener.py
+OLD_README.md
