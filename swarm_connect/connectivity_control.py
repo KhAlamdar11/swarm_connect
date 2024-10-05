@@ -140,84 +140,113 @@ class Cons1(rclpy.node.Node):
         UAV battery management, and task scheduling.
         """
         if self.is_form_called and self.check_time() > 12:
-            battery = np.array([uav.get_battery() for uav in self.active_uavs])
-            v = self.connectivity_controller.controller(battery)
-            p, done = self.connectivity_controller.step(v)
+            self.run_controller()
+            self.manage_batteries()
+            self.handle_landing()
 
-            self.pin_agents[:, :2] = p[:2]
-            self.goal_pos[:, :2] = p[2:]
 
-            self.fiedler.append(self.connectivity_controller.get_fiedler())
-            np.save('hardware_fiedler.npy', np.array(self.fiedler))
-            self.n_array_list.append(self.connectivity_controller.get_n_agents())
-            np.save('hardware_n_agents.npy', np.array(self.n_array_list))
+    def run_controller(self):
+        """
+        Runs the connectivity controller and updates the goal positions
+        for all UAVs based on the controller output.
+        """
+        battery = np.array([uav.get_battery() for uav in self.active_uavs])
+        v = self.connectivity_controller.controller(battery)
+        p, done = self.connectivity_controller.step(v)
 
-            uavs_to_land = []
-            for i, uav in enumerate(self.active_uavs):
-                uav.go_to(self.goal_pos[i])
+        self.pin_agents[:, :2] = p[:2]
+        self.goal_pos[:, :2] = p[2:]
 
-                if i in self.battery_decay_select or 1000 in self.battery_decay_select:
-                    uav.decrease_battery()
+        self.fiedler.append(self.connectivity_controller.get_fiedler())
+        np.save('hardware_fiedler.npy', np.array(self.fiedler))
+        self.n_array_list.append(self.connectivity_controller.get_n_agents())
+        np.save('hardware_n_agents.npy', np.array(self.n_array_list))
 
-                    if i not in self.critical_uavs_idx and \
-                       uav.get_battery() <= self.critical_battery_level and \
-                       (self.n_init_agents <= int(self.add_uav_limit[0]) or 
-                        self.connectivity_controller.get_fiedler() <= self.add_uav_limit[1]):
 
-                        self.critical_uavs_idx.append(i)
-                        self.connectivity_controller.add_agent(i)
+    def manage_batteries(self):
+        """
+        Handles battery checks, UAV deployment, and critical battery-level decisions.
+        """
+        for i, uav in enumerate(self.active_uavs):
+            uav.go_to(self.goal_pos[i])
 
-                        self.get_logger().info(f'Adding new agent at {self.goal_pos[-1]}...')
+            if i in self.battery_decay_select or 1000 in self.battery_decay_select:
+                uav.decrease_battery()
 
-                        battery = np.array([uav.get_battery() for uav in self.active_uavs])
-                        v = self.connectivity_controller.controller(battery)
-                        p, done = self.connectivity_controller.step(v)
-                        self.pin_agents[:, :2] = p[:2]
-                        self.goal_pos = np.append(self.goal_pos, [self.goal_pos[-1]],
-                                                  axis=0)
-                        self.goal_pos[:, :2] = p[2:]
+                if i not in self.critical_uavs_idx and \
+                uav.get_battery() <= self.critical_battery_level and \
+                (self.n_init_agents <= int(self.add_uav_limit[0]) or 
+                    self.connectivity_controller.get_fiedler() <= self.add_uav_limit[1]):
 
-                        uav_dist_to_goal = [np.linalg.norm(self.goal_pos[-1] - 
-                                            uav_g.get_pose()) for uav_g in 
-                                            self.grounded_uavs if 
-                                            uav_g.get_battery() > 0.8]
+                    self.critical_uavs_idx.append(i)
+                    self.deploy_new_uav(i)
 
-                        uav_to_add_idx = np.argmin(uav_dist_to_goal)
-                        uav_to_add = self.grounded_uavs.pop(uav_to_add_idx)
-                        path = self.create_paths(uav_to_add, self.goal_pos[-1])
-                        uav_to_add.set_trajectory(path, mode='trajectory')
 
-                        self.active_uavs.append(uav_to_add)
+    def deploy_new_uav(self, critical_uav_idx):
+        """
+        Adds a new UAV when the critical battery level is reached.
+        """
+        self.connectivity_controller.add_agent(critical_uav_idx)
 
-                        for _ in range(5):  
-                            self.active_uavs[-1].takeoff(self.takeoff_alt / 2,
-                                                         mode_change=False)
-                            self.free_charging_station(self.active_uavs[-1])
+        self.get_logger().info(f'Adding new agent at {self.goal_pos[-1]}...')
 
-                        self.n_init_agents += 1
+        battery = np.array([uav.get_battery() for uav in self.active_uavs])
+        v = self.connectivity_controller.controller(battery)
+        p, done = self.connectivity_controller.step(v)
+        self.pin_agents[:, :2] = p[:2]
+        self.goal_pos = np.append(self.goal_pos, [self.goal_pos[-1]], axis=0)
+        self.goal_pos[:, :2] = p[2:]
 
-                    if uav.get_battery() <= self.dead_battery_level:
-                        uavs_to_land.append(i)
+        uav_dist_to_goal = [np.linalg.norm(self.goal_pos[-1] - 
+                            uav_g.get_pose()) for uav_g in 
+                            self.grounded_uavs if 
+                            uav_g.get_battery() > 0.8]
 
-            for i in uavs_to_land:
-                uav_to_remove = self.active_uavs.pop(i)
-                self.grounded_uavs.append(uav_to_remove)
-                self.connectivity_controller.kill_node_i(i)
-                self.goal_pos = np.delete(self.goal_pos, i, axis=0)
-                self.n_init_agents -= 1
-                self.critical_uavs_idx.remove(i)
+        uav_to_add_idx = np.argmin(uav_dist_to_goal)
+        uav_to_add = self.grounded_uavs.pop(uav_to_add_idx)
+        path = self.create_paths(uav_to_add, self.goal_pos[-1])
+        uav_to_add.set_trajectory(path, mode='trajectory')
 
-                station = self.check_free_station(uav_to_remove)
-                self.get_logger().info(f'Free charging station: {station}')
+        self.active_uavs.append(uav_to_add)
 
-                path = self.create_paths(uav_to_remove, station)
-                uav_to_remove.set_trajectory(path, 'landing')
+        for _ in range(5):  
+            self.active_uavs[-1].takeoff(self.takeoff_alt / 2,
+                                        mode_change=False)
+            self.free_charging_station(self.active_uavs[-1])
 
-            for uav in self.grounded_uavs:
-                if uav.mode == 'landing':
-                    uav.go_to_land()
-                else:
-                    uav.recharge_battery()
+        self.n_init_agents += 1
+
+
+    def handle_landing(self):
+        """
+        Handles landing UAVs when the battery reaches the critical level
+        and checks for free charging stations.
+        """
+        uavs_to_land = []
+        for i, uav in enumerate(self.active_uavs):
+            if uav.get_battery() <= self.dead_battery_level:
+                uavs_to_land.append(i)
+
+        for i in uavs_to_land:
+            uav_to_remove = self.active_uavs.pop(i)
+            self.grounded_uavs.append(uav_to_remove)
+            self.connectivity_controller.kill_node_i(i)
+            self.goal_pos = np.delete(self.goal_pos, i, axis=0)
+            self.n_init_agents -= 1
+            self.critical_uavs_idx.remove(i)
+
+            station = self.check_free_station(uav_to_remove)
+            self.get_logger().info(f'Free charging station: {station}')
+
+            path = self.create_paths(uav_to_remove, station)
+            uav_to_remove.set_trajectory(path, 'landing')
+
+        for uav in self.grounded_uavs:
+            if uav.mode == 'landing':
+                uav.go_to_land()
+            else:
+                uav.recharge_battery()
+
 
     def _set_key_vel(self, msg):
         """

@@ -50,7 +50,7 @@ Then run:
 ros2 launch crazyflie launch.py backend:=cflib
 ```
 
-⚠️ After running the simulator, give a few seconds before you run the crazyflie server. If all crazyflies do not connect, close other processing on your computer and start again, or reduce the number of Crazyflies (large number of UAVs may result in reduction in Gazebo real time factor causing async issues with the server).
+⚠️ After running the simulator, give a few seconds before you run the crazyflie server. If all crazyflies do not connect, close other processing on your computer and start again, or reduce the number of Crazyflies (large number of UAVs may result in reduction in Gazebo real time factor causing async issues with the server). This can also result in a scenerio where sometimes new UAVs fail to take off.
 
 ### 2. Run the connectivity controller
 
