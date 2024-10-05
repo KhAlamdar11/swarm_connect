@@ -1,4 +1,6 @@
 from setuptools import find_packages, setup
+from glob import glob
+import os
 
 package_name = 'swarm_connect'
 
@@ -7,9 +9,18 @@ setup(
     version='0.0.0',
     packages=find_packages(exclude=['test']),
     data_files=[
+        # Required by ament to find the package
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
+        
+        # Install the package.xml file
         ('share/' + package_name, ['package.xml']),
+        
+        # Install the launch files
+        (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
+        
+        # Install the config files if you have any in the 'cfg' folder
+        (os.path.join('share', package_name, 'cfg'), glob('cfg/*.cfg')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -20,10 +31,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            "connectivity_control = swarm_connect.connectivity_control:main"
-            # "hardware_connectivity_control = swarm_connect.hardware_connectivity_control:main",
-            # "hardware1 = swarm_connect.hardware1:main",
-            # "transform_listener = swarm_connect.transform_listener:main"
+            "connectivity_control = swarm_connect.connectivity_control:main",
+            # Add other scripts here when needed
         ],
     },
 )

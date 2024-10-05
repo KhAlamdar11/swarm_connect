@@ -69,3 +69,9 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 ## Hardware migration
 
 The exact same scripts are used with Crazyflies on hardware as well. Be careful about the namespaces of Crazyflies as on hardware they may look like ```cf1/``` instead of ```cf_1/```.
+
+## TODOs
+- [ ] Update the charging station initialization to dynamically create stations at initial UAV positions instead of being preset. 
+- [ ] Make this a ROS 2 wrapper over [gym_connect](https://github.com/KhAlamdar11/gym-connect).
+- [ ] Upgrade planning and motion control to be smoother.
+- [ ] Upgrade mission environment with actual base stations, physical charging stations and an actual robot instead of a virtual one.

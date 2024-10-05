@@ -75,8 +75,16 @@ class Cons1(rclpy.node.Node):
         self.is_paths_created = False
         self.is_pt_reached = True
 
-        self.fiedler = []
-        self.n_array_list = []
+        # Configuration values
+        self.takeoff_delay = 5  # Replace hardcoded 5
+        self.controller_start_delay = 12  # Replace hardcoded 12
+        self.critical_battery_level = 0.2  # Adjust this as per the system's need
+        self.dead_battery_level = 0.1  # Adjust based on when UAV should land
+        self.num_takeoff_retries = 20  # Replace hardcoded retries (previously 5)
+
+        # Changed variables initialization
+        self.fiedler_eigenvalue = []  # Changed from self.fiedler
+        self.num_active_uavs_list = []  # Changed from self.n_array_list
 
         # Set up occupancy grid and pathfinder
         self.occupancy_grid = OccupancyGrid3D(self.map_range,
@@ -116,7 +124,7 @@ class Cons1(rclpy.node.Node):
                 self.is_init_called = True
                 self.get_logger().info('Takeoffs completed...')
 
-        if self.is_init_called and self.check_time() > 5:
+        if self.is_init_called and self.check_time() > self.takeoff_delay:
             battery = np.array([uav.get_battery() for uav in self.active_uavs])
             self.connectivity_controller.reset(battery=battery,
                                                is_gen_lattice=False)
@@ -139,7 +147,7 @@ class Cons1(rclpy.node.Node):
         Main function running the connectivity controller,
         UAV battery management, and task scheduling.
         """
-        if self.is_form_called and self.check_time() > 12:
+        if self.is_form_called and self.check_time() > self.controller_start_delay:
             self.run_controller()
             self.manage_batteries()
             self.handle_landing()
@@ -150,17 +158,24 @@ class Cons1(rclpy.node.Node):
         Runs the connectivity controller and updates the goal positions
         for all UAVs based on the controller output.
         """
-        battery = np.array([uav.get_battery() for uav in self.active_uavs])
-        v = self.connectivity_controller.controller(battery)
-        p, done = self.connectivity_controller.step(v)
+        try:
+            battery = np.array([uav.get_battery() for uav in self.active_uavs])
+            control_vector = self.connectivity_controller.controller(battery)
+            positions, done = self.connectivity_controller.step(control_vector)
 
-        self.pin_agents[:, :2] = p[:2]
-        self.goal_pos[:, :2] = p[2:]
+            self.pin_agents[:, :2] = positions[:2]
+            self.goal_pos[:, :2] = positions[2:]
 
-        self.fiedler.append(self.connectivity_controller.get_fiedler())
-        np.save('hardware_fiedler.npy', np.array(self.fiedler))
-        self.n_array_list.append(self.connectivity_controller.get_n_agents())
-        np.save('hardware_n_agents.npy', np.array(self.n_array_list))
+            self.fiedler_eigenvalue.append(self.connectivity_controller.get_fiedler())
+            np.save('hardware_fiedler.npy', np.array(self.fiedler_eigenvalue))
+
+            self.num_active_uavs_list.append(self.connectivity_controller.get_n_agents())
+            np.save('hardware_n_agents.npy', np.array(self.num_active_uavs_list))
+
+            self.get_logger().debug('Controller updated positions and goals')
+
+        except Exception as e:
+            self.get_logger().error(f"Error in running controller: {str(e)}")
 
 
     def manage_batteries(self):
@@ -173,48 +188,73 @@ class Cons1(rclpy.node.Node):
             if i in self.battery_decay_select or 1000 in self.battery_decay_select:
                 uav.decrease_battery()
 
-                if i not in self.critical_uavs_idx and \
-                uav.get_battery() <= self.critical_battery_level and \
-                (self.n_init_agents <= int(self.add_uav_limit[0]) or 
-                    self.connectivity_controller.get_fiedler() <= self.add_uav_limit[1]):
-
+                if self.is_critical_battery(i, uav):
                     self.critical_uavs_idx.append(i)
                     self.deploy_new_uav(i)
+
+
+    def is_critical_battery(self, uav_idx, uav):
+        """
+        Checks if a UAV is in a critical battery condition and needs attention.
+        
+        Args:
+            uav_idx (int): The index of the UAV.
+            uav (UAV): The UAV object to check battery level for.
+
+        Returns:
+            bool: True if the battery is critical, False otherwise.
+        """
+        return (uav_idx not in self.critical_uavs_idx and
+                uav.get_battery() <= self.critical_battery_level and
+                (self.n_init_agents <= int(self.add_uav_limit[0]) or
+                self.connectivity_controller.get_fiedler() <= self.add_uav_limit[1]))
 
 
     def deploy_new_uav(self, critical_uav_idx):
         """
         Adds a new UAV when the critical battery level is reached.
         """
-        self.connectivity_controller.add_agent(critical_uav_idx)
+        try:
+            self.connectivity_controller.add_agent(critical_uav_idx)
 
-        self.get_logger().info(f'Adding new agent at {self.goal_pos[-1]}...')
+            self.get_logger().info(f'Adding new agent at {self.goal_pos[-1]}...')
 
-        battery = np.array([uav.get_battery() for uav in self.active_uavs])
-        v = self.connectivity_controller.controller(battery)
-        p, done = self.connectivity_controller.step(v)
-        self.pin_agents[:, :2] = p[:2]
-        self.goal_pos = np.append(self.goal_pos, [self.goal_pos[-1]], axis=0)
-        self.goal_pos[:, :2] = p[2:]
+            battery = np.array([uav.get_battery() for uav in self.active_uavs])
+            control_vector = self.connectivity_controller.controller(battery)
+            positions, done = self.connectivity_controller.step(control_vector)
+            
+            self.pin_agents[:, :2] = positions[:2]
+            self.goal_pos = np.append(self.goal_pos, [self.goal_pos[-1]], axis=0)
+            self.goal_pos[:, :2] = positions[2:]
 
-        uav_dist_to_goal = [np.linalg.norm(self.goal_pos[-1] - 
-                            uav_g.get_pose()) for uav_g in 
-                            self.grounded_uavs if 
-                            uav_g.get_battery() > 0.8]
+            uav_dist_to_goal = [np.linalg.norm(self.goal_pos[-1] - 
+                                uav_g.get_pose()) for uav_g in 
+                                self.grounded_uavs if 
+                                uav_g.get_battery() > 0.8]
 
-        uav_to_add_idx = np.argmin(uav_dist_to_goal)
-        uav_to_add = self.grounded_uavs.pop(uav_to_add_idx)
-        path = self.create_paths(uav_to_add, self.goal_pos[-1])
-        uav_to_add.set_trajectory(path, mode='trajectory')
+            uav_to_add_idx = np.argmin(uav_dist_to_goal)
+            uav_to_add = self.grounded_uavs.pop(uav_to_add_idx)
+            path = self.create_paths(uav_to_add, self.goal_pos[-1])
 
-        self.active_uavs.append(uav_to_add)
+            if path is None:
+                self.get_logger().error("Failed to create a valid path for UAV deployment.")
+                return
 
-        for _ in range(5):  
-            self.active_uavs[-1].takeoff(self.takeoff_alt / 2,
-                                        mode_change=False)
-            self.free_charging_station(self.active_uavs[-1])
+            uav_to_add.set_trajectory(path, mode='trajectory')
+            self.active_uavs.append(uav_to_add)
 
-        self.n_init_agents += 1
+            if self.num_takeoff_retries > 0:
+                self.get_logger().info(f'Taking off UAV {uav_to_add.get_name()}')
+
+            for _ in range(self.num_takeoff_retries):  
+                self.active_uavs[-1].takeoff(self.takeoff_alt / 2,
+                                            mode_change=False)
+                self.free_charging_station(self.active_uavs[-1])
+
+            self.n_init_agents += 1
+
+        except Exception as e:
+            self.get_logger().error(f"Error during UAV deployment: {str(e)}")
 
 
     def handle_landing(self):
@@ -266,27 +306,33 @@ class Cons1(rclpy.node.Node):
     def create_paths(self, uav, goal):
         """
         Creates paths for UAV to a specific goal using the occupancy grid.
+        Handles exceptions that may occur during pathfinding.
         """
-        self.get_logger().info('Creating Path...')
+        try:
+            self.get_logger().debug('Creating path...')
 
-        pos = [uav_i.get_pose() for uav_i in self.active_uavs if uav_i != uav]
-        grid = self.occupancy_grid.get_grid_marked(pos)
+            pos = [uav_i.get_pose() for uav_i in self.active_uavs if uav_i != uav]
+            grid = self.occupancy_grid.get_grid_marked(pos)
 
-        self.viz_manager.viz_map(self.occupancy_grid)
-        self.path_finder.update_grid(self.occupancy_grid.get_grid())
+            self.viz_manager.viz_map(self.occupancy_grid)
+            self.path_finder.update_grid(self.occupancy_grid.get_grid())
 
-        uav_pos = uav.get_pose()
-        uav_pos[-1] = self.takeoff_alt / 2
+            uav_pos = uav.get_pose()
+            uav_pos[-1] = self.takeoff_alt / 2
 
-        start = self.occupancy_grid.real_to_grid(uav_pos)
-        goal = self.occupancy_grid.real_to_grid(goal)
+            start = self.occupancy_grid.real_to_grid(uav_pos)
+            goal = self.occupancy_grid.real_to_grid(goal)
 
-        self.get_logger().info(f"Searching path from {uav.get_pose()} "
-                               f"to {self.goal_pos[-1]}")
-        path_grid = self.path_finder.search(start, goal)
-        path = self.occupancy_grid.all_grid_to_real(path_grid)
+            self.get_logger().debug(f"Searching path from {start} to {goal}")
+            path_grid = self.path_finder.search(start, goal)
+            path = self.occupancy_grid.all_grid_to_real(path_grid)
 
-        return path
+            self.get_logger().debug('Path created successfully')
+            return path
+
+        except Exception as e:
+            self.get_logger().error(f"Error in creating path: {str(e)}")
+            return None
 
     def free_charging_station(self, uav):
         """
