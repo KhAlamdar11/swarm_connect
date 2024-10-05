@@ -16,8 +16,6 @@ import copy
 
 import numpy as np
 
-# TODO: Reduce reduncancy of creation of markers every time. Create a single function for that.
-
 '''
 Base class for UAV related data handling and processing
 '''
@@ -77,7 +75,7 @@ class UAV:
         while not self.takeoff_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info(f'Takeoff for {self.name} not available, waiting...') if self.is_log_status else None
         
-        for i in range(5):
+        for i in range(20):
             future = self.takeoff_client.call_async(Takeoff.Request(height=altitude,
                                                                     duration=Duration(sec=2, 
                                                                     nanosec=0)))
