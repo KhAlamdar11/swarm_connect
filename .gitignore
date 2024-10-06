@@ -1,6 +1,7 @@
 *.pyc
 __pycache__
 .idea/
+.vscode/
 
 OLD_README.md
 hardware.md
