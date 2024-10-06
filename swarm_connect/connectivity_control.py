@@ -11,7 +11,7 @@ from geometry_msgs.msg import Twist
 
 from .modules.connectivity_class import ConnectivityClass
 from .modules.occupancy_grid import OccupancyGrid3D
-from .utils.utils import *  # Ensure the utils import is present
+from .utils.utils import *
 from .modules.Astar import PathFinder
 from .modules.vizualization_manager import VisualizationManager
 from .modules.uav import UAV
@@ -375,6 +375,7 @@ class Cons1(rclpy.node.Node):
         all_paths = [uav.get_trajectory() for uav in self.active_uavs if 
                      len(uav.get_trajectory()) != 0]
         self.viz_manager.viz_path(all_paths)
+        
 
 def main():
     """

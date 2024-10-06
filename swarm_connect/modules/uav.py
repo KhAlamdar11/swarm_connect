@@ -17,7 +17,8 @@ import copy
 import numpy as np
 
 '''
-Base class for UAV related data handling and processing
+Base class for UAV related data handling and processing.
+TODO: Refine the logic for cleaner code.
 '''
 
 class UAV:
@@ -210,9 +211,7 @@ class UAV:
     #_________________________  Utils  _________________________
 
     def get_sec_nanosec(self,sec):
-        '''
-        Converts seconds in float to seconds(int) and nanseconds(int) for the duration based services
-        '''
+        """Converts seconds in float to seconds(int) and nanseconds(int) for the duration based services"""
         seconds = int(math.floor(sec))
         fractional_part = sec - seconds
         nanoseconds = int(fractional_part * 1e9)  # Convert fractional seconds to nanoseconds

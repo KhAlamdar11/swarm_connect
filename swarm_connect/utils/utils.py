@@ -22,29 +22,3 @@ def get_edges(positions, communication_distance):
             if distance_matrix[i, j] < communication_distance:
                 edges.append((i, j))
     return edges
-
-def hungarian_reassignment(current_positions, desired_positions):
-    n = current_positions.shape[0]  # Number of robots/positions
-    
-    # Initialize the cost matrix with zeros
-    cost_matrix = np.zeros((n, n))
-    
-    # Calculate the cost (Euclidean distance) for each robot to each position
-    for i in range(n):
-        for j in range(n):
-            cost_matrix[i, j] = np.linalg.norm(current_positions[i] - desired_positions[j])
-    
-    # Solve the assignment problem
-    row_ind, col_ind = linear_sum_assignment(cost_matrix)
-    
-    # Reorder desired_positions based on the assignment
-    reordered_desired_positions = desired_positions[col_ind]
-    
-    # Return the reordered desired_positions matrix
-    return reordered_desired_positions
-
-# Example usage:
-# positions = np.array([[0, 0], [1, 1], [2, 2], [5, 5]])
-# communication_distance = 3
-# edges = get_edges(positions, communication_distance)
-# print(edges)

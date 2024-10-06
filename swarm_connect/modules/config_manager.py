@@ -2,7 +2,6 @@ import json
 import math
 import numpy as np
 
-
 def load_config_params(self, config):
     # map params
     self.map_range = np.array(json.loads(config.get('map_range')), dtype=float)

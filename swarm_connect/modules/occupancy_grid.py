@@ -37,8 +37,6 @@ class OccupancyGrid3D:
                             self.grid[ny, nx, nz] = 1
         return self.grid
         
-
-
     def is_occupied(self, real_x, real_y, real_z):
         x, y, z = self.real_to_grid(real_x, real_y, real_z)
         return self.grid[y, x, z] == 1
