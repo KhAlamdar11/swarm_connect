@@ -32,6 +32,7 @@ setup(
     entry_points={
         'console_scripts': [
             "connectivity_control = swarm_connect.connectivity_control:main",
+            "hardware_test = swarm_connect.hardware_test:main",
             # Add other scripts here when needed
         ],
     },

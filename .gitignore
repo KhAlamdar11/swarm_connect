@@ -5,3 +5,5 @@ __pycache__
 
 OLD_README.md
 hardware.md
+_tests/
+hardware_setup.md
