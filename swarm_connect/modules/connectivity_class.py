@@ -9,17 +9,21 @@ import math
 import random
 
 from swarm_connect.utils.connectivity_controller import ConnectivityController
-from swarm_connect_ros.utils.lattice import *
+from swarm_connect.utils.lattice import *
 
 
 font = {'family': 'sans-serif',
         'weight': 'bold',
         'size': 14}
 
+import rclpy
+
 
 class ConnectivityClass():
 
     def __init__(self):
+
+        self.logger = rclpy.logging.get_logger("DEBUG")
 
         self.mean_pooling = True  # normalize the adjacency matrix by the number of neighbors or not
 
@@ -440,3 +444,8 @@ class ConnectivityClass():
         self.comm_radius = comm_radius
 
 
+    def set_pin_nodes(self, start=None, end=None):
+        if start is not None:
+            self.start_node = np.array(start)
+        if end is not None:
+            self.end_node = np.array(end)

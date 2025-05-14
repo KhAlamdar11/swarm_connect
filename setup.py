@@ -32,7 +32,11 @@ setup(
     entry_points={
         'console_scripts': [
             "connectivity_control = swarm_connect.connectivity_control:main",
-            # Add other scripts here when needed
+            "stubborn_agents = swarm_connect.stubborn_agents:main",
+            "beacons = swarm_connect.beacons:main",
+            "test_octomap_slicer = swarm_connect.test_octomap_slicer:main",
+            "inspection_v1 = swarm_connect.inspection_v1:main",
+            "beacons_set_waypoints = swarm_connect.beacons_set_waypoints:main",
         ],
     },
 )

@@ -11,12 +11,14 @@ def generate_launch_description():
         'cfg1_battery.cfg'  # Configuration file
     )
 
-    # Define the node
+    config_file_path = '/root/CrazySim/ros2_ws/src/meta_packages_hero/swarm_connect/cfg/cfg1_battery.cfg'
+
+    # Define the node with a parameter
     return LaunchDescription([
         Node(
             package='swarm_connect',  # Your package name
             executable='connectivity_control',  # Your node executable
             name='connectivity_control_node',  # Node name
-            parameters=[{'config': config_file_path}]  # Passing the config file
+            parameters=[{'config_file': config_file_path}]  # Passing config as a parameter
         )
     ])

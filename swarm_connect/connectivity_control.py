@@ -3,11 +3,15 @@ import math
 import argparse
 import configparser
 from os import path
+import os
+
+import tf_transformations
 
 import rclpy
 import rclpy.node
 from rclpy.clock import Clock, ClockType
 from geometry_msgs.msg import Twist
+from geometry_msgs.msg import PoseStamped
 
 from .modules.connectivity_class import ConnectivityClass
 from .modules.occupancy_grid import OccupancyGrid3D
@@ -23,10 +27,25 @@ class Cons1(rclpy.node.Node):
     and connectivity.
     """
 
-    def __init__(self, node_name: str, config):
+    def __init__(self, node_name: str):
         super().__init__(node_name)
 
+        # Load config file parameters
+        self.declare_parameter('config_file', '')
+        config_file = self.get_parameter('config_file').value
+        if not config_file:
+            self.get_logger().error("No config file provided! Exiting.")
+            return
+        self.get_logger().info(f"Using config file: {config_file}")
+        config = configparser.ConfigParser()
+        config.read(config_file)
+        config=config[config.default_section]
         load_config_params(self, config)
+
+        # load comm range from setup file
+        self.comm_radius = float(os.environ.get('COMM_RANGE', 1))
+        config['comm_radius'] = str(self.comm_radius)
+        self.get_logger().info(f"Communication range: {self.comm_radius}")
 
         self.uav_ns = [f'cf_{i+1}' for i in range(self.n_agents)]
 
@@ -93,12 +112,18 @@ class Cons1(rclpy.node.Node):
         self.all_paths = []
 
         # ROS 2 Subscribers
-        self.key_vel = None
-        self.create_subscription(Twist, '/cmd_vel', self._set_key_vel, 10)
+        # self.key_vel = None
+        # self.create_subscription(Twist, '/cmd_vel', self._set_key_vel, 10)
 
         # Controllers
         self.connectivity_controller = ConnectivityClass()
         self.connectivity_controller.params_from_cfg(config, 1/self.rate)
+
+        # Set base and robot
+        self.base = None
+        self.create_subscription(PoseStamped, 'cf_6/pose', self._base_pose_cb,10)  
+        self.robot = None
+        self.create_subscription(PoseStamped, 'cf_5/pose', self._robot_pose_cb,10)  
 
         # Visualization manager
         self.viz_manager = VisualizationManager(self)
@@ -106,7 +131,44 @@ class Cons1(rclpy.node.Node):
         # Timers
         self.init_form = self.create_timer(1/self.rate, self.initialize_formation)
         self.run_c = self.create_timer(1/self.rate, self.run)
-        self.viz = self.create_timer(0.5, self.viz)
+        self.viz = self.create_timer(0.1, self.viz)
+
+    def _robot_pose_cb(self, msg: PoseStamped):
+    
+        position = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
+        
+        orientation_q = [msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w]
+        attitude = tf_transformations.euler_from_quaternion(orientation_q)
+        # wrap yaw
+        if attitude[2] > np.pi:
+            attitude[2] -= 2 * np.pi
+        elif attitude[2] < -np.pi:
+            attitude[2] += 2 * np.pi
+
+        self.robot = position
+
+        self.get_logger().info(f'Robot position: {self.robot}')
+
+        self.connectivity_controller.set_pin_nodes(end=self.robot[:2])
+        
+    def _base_pose_cb(self, msg: PoseStamped):
+    
+        position = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
+        
+        orientation_q = [msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w]
+        attitude = tf_transformations.euler_from_quaternion(orientation_q)
+        # wrap yaw
+        if attitude[2] > np.pi:
+            attitude[2] -= 2 * np.pi
+        elif attitude[2] < -np.pi:
+            attitude[2] += 2 * np.pi
+
+        self.base = position
+
+        self.get_logger().info(f'base position: {self.base}')
+
+        self.connectivity_controller.set_pin_nodes(start=self.base[:2])
+        
 
     def initialize_formation(self):
         """
@@ -117,6 +179,7 @@ class Cons1(rclpy.node.Node):
             pose_count = 0
             for uav in self.active_uavs:
                 if uav.get_pose() is not None:
+                    print(f'takeoff altitude {self.takeoff_alt}')
                     uav.takeoff(self.takeoff_alt)
                     self.free_charging_station(uav)
                     pose_count += 1
@@ -165,6 +228,9 @@ class Cons1(rclpy.node.Node):
 
             self.pin_agents[:, :2] = positions[:2]
             self.goal_pos[:, :2] = positions[2:]
+
+            # Set z height
+            self.goal_pos[:, 2] = self.takeoff_alt
 
             self.fiedler_eigenvalue.append(self.connectivity_controller.get_fiedler())
             np.save('hardware_fiedler.npy', np.array(self.fiedler_eigenvalue))
@@ -247,7 +313,7 @@ class Cons1(rclpy.node.Node):
                 self.get_logger().info(f'Taking off UAV {uav_to_add.get_name()}')
 
             for _ in range(self.num_takeoff_retries):  
-                self.active_uavs[-1].takeoff(self.takeoff_alt / 2,
+                self.active_uavs[-1].takeoff(self.takeoff_alt,
                                             mode_change=False)
                 self.free_charging_station(self.active_uavs[-1])
 
@@ -295,6 +361,8 @@ class Cons1(rclpy.node.Node):
         key_vel = np.array([msg.linear.x, msg.linear.y])
         self.connectivity_controller.update_pin_nodes(u2=key_vel)
 
+    
+
     def check_time(self):
         """
         Checks the elapsed time since node start.
@@ -318,7 +386,7 @@ class Cons1(rclpy.node.Node):
             self.path_finder.update_grid(self.occupancy_grid.get_grid())
 
             uav_pos = uav.get_pose()
-            uav_pos[-1] = self.takeoff_alt / 2
+            uav_pos[-1] = self.takeoff_alt
 
             start = self.occupancy_grid.real_to_grid(uav_pos)
             goal = self.occupancy_grid.real_to_grid(goal)
@@ -381,17 +449,10 @@ def main():
     """
     Main entry point of the script to start the ROS 2 node.
     """
-    parser = argparse.ArgumentParser(description='Start a Basic1 node with configuration.')
-    parser.add_argument('config', type=str, help='Path to the configuration file.')
-    args = parser.parse_args()
-    config_file = path.abspath(args.config)  # Ensure the path is absolute
-    print(f"Using config file: {config_file}")
-    config = configparser.ConfigParser()
-    config.read(config_file)
-
     rclpy.init()
 
-    node = Cons1("basic2", config=config[config.default_section])
+    # Initialize the actual node (it will read config_file itself)
+    node = Cons1("basic2")
 
     rclpy.spin(node)
 

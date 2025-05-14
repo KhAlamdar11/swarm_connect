@@ -5,17 +5,25 @@ from geometry_msgs.msg import Quaternion, Point, Vector3
 from nav_msgs.msg import Path
 import tf_transformations
 import numpy as np
+from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy, QoSHistoryPolicy
 
 class VisualizationManager:
     def __init__(self, node):
         self.node = node
-        self.viz_goals_pub = node.create_publisher(MarkerArray, f'{node.get_name()}/viz_goals', 10)
-        self.viz_pins_pub = node.create_publisher(MarkerArray, f'{node.get_name()}/viz_pins', 10)
-        self.viz_edges_pub = node.create_publisher(Marker, f'{node.get_name()}/viz_edges', 10)
-        self.viz_map_pub = node.create_publisher(MarkerArray, f'{node.get_name()}/viz_map', 10)
-        self.viz_anon_pt_pub = node.create_publisher(MarkerArray, f'{node.get_name()}/viz_anon_pt', 10)
-        self.viz_path_pub = node.create_publisher(Marker, f'{node.get_name()}/viz_path', 10)
-        self.viz_charging_stations_pub = node.create_publisher(MarkerArray, f'{node.get_name()}/viz_charging_stations', 10)
+        qos_transient_local = QoSProfile(
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=10,
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL  # Fixes disappearing markers
+        )
+
+        self.viz_goals_pub = node.create_publisher(MarkerArray, f'{node.get_name()}/viz_goals', qos_transient_local)
+        self.viz_pins_pub = node.create_publisher(MarkerArray, f'{node.get_name()}/viz_pins', qos_transient_local)
+        self.viz_edges_pub = node.create_publisher(Marker, f'{node.get_name()}/viz_edges', qos_transient_local)
+        self.viz_map_pub = node.create_publisher(MarkerArray, f'{node.get_name()}/viz_map', qos_transient_local)
+        self.viz_anon_pt_pub = node.create_publisher(MarkerArray, f'{node.get_name()}/viz_anon_pt', qos_transient_local)
+        self.viz_path_pub = node.create_publisher(Marker, f'{node.get_name()}/viz_path', qos_transient_local)
+        self.viz_charging_stations_pub = node.create_publisher(MarkerArray, f'{node.get_name()}/viz_charging_stations', qos_transient_local)
 
     def create_marker(self, marker_id, marker_type, frame_id="world", scale=(0.15, 0.15, 0.15), color=(1.0, 0.0, 0.0, 1.0), lifetime=0.1):
         """Helper function to create and initialize a marker."""
